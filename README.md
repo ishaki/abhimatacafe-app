@@ -1,6 +1,6 @@
 # Abhimata Cafe Management System
 
-A comprehensive web-based cafe management system built with Python Flask backend and React frontend, designed for local network deployment.
+A comprehensive web-based cafe management system built with Python Flask backend and React frontend. Supports both local network and cloud deployment (Railway).
 
 ## Features
 
@@ -16,9 +16,21 @@ A comprehensive web-based cafe management system built with Python Flask backend
 ### Technical Features
 - **Real-time Updates**: WebSocket integration for instant order updates
 - **Responsive Design**: Optimized for tablets and phones
-- **Local Network Deployment**: Runs on local network for multi-device access
 - **Touch-friendly Interface**: Large buttons and drag-and-drop support
 - **Orange Branding**: Consistent Abhimata Cafe branding throughout
+- **Production Ready**: Railway deployment config, security hardening, health checks
+
+### Security Features
+- Environment-enforced secret keys (no fallback in production)
+- Account lockout after 5 failed login attempts (15 min cooldown)
+- Password strength validation (uppercase, lowercase, number, min 8 chars)
+- Password change endpoint
+- Proper input sanitization using `markupsafe`
+- Security headers (CSP, HSTS, X-Frame-Options, etc.)
+- Environment-based CORS (no wildcards)
+- Rate limiting on auth and financial endpoints
+- Audit logging for sensitive operations
+- No error detail leaks in production
 
 ## Technology Stack
 
@@ -28,7 +40,8 @@ A comprehensive web-based cafe management system built with Python Flask backend
 - **Flask-SocketIO**: Real-time WebSocket communication
 - **Flask-JWT-Extended**: JWT authentication
 - **SQLAlchemy**: Database ORM
-- **SQLite**: Database (for simplicity)
+- **SQLite**: Database
+- **Gunicorn + Eventlet**: Production WSGI server
 - **bcrypt**: Password hashing
 
 ### Frontend
@@ -48,8 +61,8 @@ A comprehensive web-based cafe management system built with Python Flask backend
 - Node.js 16 or higher
 - npm or yarn
 
-### Quick Start (Windows)
-1. Clone or download the project
+### Quick Start (Windows — Local Development)
+1. Clone the project
 2. Run `start_all.bat` to start both servers automatically
 3. Access the application at `http://localhost:3000`
 
@@ -75,10 +88,42 @@ npm install
 npm run dev
 ```
 
-## Default Login Credentials
+### Environment Variables
 
-- **Username**: `admin`
-- **Password**: `admin123`
+Copy `backend/env.example` to `backend/.env` and configure:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SECRET_KEY` | Flask session secret (required in production) | `fallback-dev-key` |
+| `JWT_SECRET_KEY` | JWT signing key (required in production) | `fallback-jwt-key` |
+| `FLASK_ENV` | `development` or `production` | `development` |
+| `DATABASE_PATH` | SQLite database file path | `abhimata_cafe.db` |
+| `ALLOWED_ORIGINS` | Comma-separated CORS origins | `http://localhost:3000` |
+| `PORT` | Server port | `5000` |
+
+Generate secure keys with:
+```bash
+python -c "import secrets; print(secrets.token_hex(32))"
+```
+
+## Deployment
+
+### Railway (Recommended for Cloud)
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for full deployment guide.
+
+Quick steps:
+1. Connect GitHub repo to Railway
+2. Add a persistent volume mounted at `/data`
+3. Set environment variables (`SECRET_KEY`, `JWT_SECRET_KEY`, `FLASK_ENV=production`, `DATABASE_PATH=/data/abhimata_cafe.db`, `ALLOWED_ORIGINS=https://your-app.up.railway.app`)
+4. Railway auto-deploys from `main` branch
+
+Estimated cost: ~$2-5/month for small cafe usage.
+
+### Local Network
+1. **Backend**: Flask runs on `0.0.0.0:5000` by default
+2. **Frontend**: Vite dev server runs on `0.0.0.0:3000` by default
+3. **Access**: Other devices on the same network can access via `http://[SERVER_IP]:3000`
 
 ## User Roles & Permissions
 
@@ -108,7 +153,10 @@ npm run dev
 
 ### Authentication
 - `POST /api/auth/login` - User login
+- `POST /api/auth/logout` - User logout
+- `POST /api/auth/refresh` - Refresh JWT token
 - `GET /api/auth/me` - Get current user
+- `POST /api/auth/change-password` - Change password
 - `GET /api/auth/users` - List users (Admin only)
 - `POST /api/auth/users` - Create user (Admin only)
 
@@ -124,6 +172,8 @@ npm run dev
 - `POST /api/orders/` - Create order (Admin/Waitress)
 - `GET /api/orders/:id` - Get order details
 - `PATCH /api/orders/:id/status` - Update order status
+- `POST /api/orders/:id/items` - Add items to existing order
+- `DELETE /api/orders/:id/items/:item_id` - Remove item from order
 
 ### Kitchen
 - `GET /api/kitchen/orders` - Get pending orders
@@ -144,60 +194,72 @@ npm run dev
 - `GET /api/reports/weekly` - Weekly report
 - `GET /api/reports/monthly` - Monthly report
 
-## WebSocket Events
+### Settings
+- `GET /api/settings` - Get app settings
+- `POST /api/settings` - Update settings (Admin only)
+- `POST /api/settings/reset` - Reset to defaults (Admin only)
 
-### Client to Server
-- Connection established automatically
+### Health
+- `GET /api/health` - Health check endpoint
+
+## WebSocket Events
 
 ### Server to Client
 - `new_order` - New order created
 - `order_updated` - Order status updated
+- `order_items_added` - Items added to existing order
+- `order_item_deleted` - Item removed from order
 
 ## Database Schema
 
-The system uses SQLite with the following main tables:
+The system uses SQLite with the following tables:
 - `users` - User accounts and roles
+- `user_sessions` - Active session tracking
 - `menu_items` - Menu items with categories and pricing
 - `orders` - Order information and status
 - `order_items` - Individual items within orders
 - `expenses` - Daily expense tracking
+- `settings` - Application configuration
+- `audit_logs` - Security audit trail
 
-## Local Network Deployment
-
-To deploy on local network:
-
-1. **Backend**: The Flask app runs on `0.0.0.0:5000` by default
-2. **Frontend**: The Vite dev server runs on `0.0.0.0:3000` by default
-3. **Access**: Other devices on the same network can access via `http://[SERVER_IP]:3000`
-
-## Development
-
-### Project Structure
+## Project Structure
 ```
 AbhimataCafe/
 ├── backend/
-│   ├── app.py              # Main Flask application
-│   ├── models.py           # Database models
-│   ├── routes/             # API route handlers
-│   └── requirements.txt    # Python dependencies
+│   ├── app.py                # Main Flask application
+│   ├── models.py             # Database models
+│   ├── socketio_instance.py  # WebSocket setup
+│   ├── routes/               # API route handlers
+│   │   ├── auth.py           # Authentication & user management
+│   │   ├── menu.py           # Menu CRUD
+│   │   ├── orders.py         # Order management
+│   │   ├── kitchen.py        # Kitchen display
+│   │   ├── billing.py        # Payment processing
+│   │   ├── expenses.py       # Expense tracking
+│   │   ├── reports.py        # Reports & analytics
+│   │   └── settings.py       # App settings
+│   ├── utils/
+│   │   ├── validators.py     # Input validation & sanitization
+│   │   └── audit.py          # Audit logging
+│   ├── requirements.txt      # Python dependencies
+│   └── env.example           # Environment variable template
 ├── frontend/
 │   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   ├── pages/          # Page components
-│   │   ├── contexts/       # React contexts
-│   │   ├── services/       # API and WebSocket services
-│   │   └── App.jsx         # Main app component
-│   └── package.json        # Node.js dependencies
+│   │   ├── components/       # Reusable components
+│   │   ├── pages/            # Page components
+│   │   ├── contexts/         # React contexts (Auth, Settings)
+│   │   ├── services/         # API and WebSocket services
+│   │   └── App.jsx           # Main app component
+│   ├── vite.config.js        # Vite config with dev proxy
+│   └── package.json          # Node.js dependencies
 ├── database/
-│   └── schema.sql          # Database schema
+│   └── schema.sql            # Database schema
+├── DEPLOYMENT.md             # Deployment & security guide
+├── Procfile                  # Railway/Gunicorn start command
+├── railway.toml              # Railway deploy config
+├── nixpacks.toml             # Railway build config (Python + Node)
 └── README.md
 ```
-
-### Adding New Features
-1. Backend: Add routes in `backend/routes/`
-2. Frontend: Add pages in `frontend/src/pages/`
-3. Update navigation in Dashboard component
-4. Add role permissions as needed
 
 ## Troubleshooting
 
@@ -205,11 +267,13 @@ AbhimataCafe/
 1. **Port already in use**: Change ports in `app.py` (backend) or `vite.config.js` (frontend)
 2. **Database errors**: Delete `abhimata_cafe.db` to reset database
 3. **WebSocket connection issues**: Check firewall settings and network connectivity
-4. **CORS errors**: Ensure backend CORS is configured for your frontend URL
+4. **CORS errors**: Ensure `ALLOWED_ORIGINS` env var includes your frontend URL
+5. **Production startup crash**: Make sure `SECRET_KEY` and `JWT_SECRET_KEY` are set
 
 ### Logs
 - Backend logs appear in the terminal running `python app.py`
 - Frontend logs appear in browser console and terminal running `npm run dev`
+- Audit logs are stored in the `audit_logs` database table
 
 ## License
 
