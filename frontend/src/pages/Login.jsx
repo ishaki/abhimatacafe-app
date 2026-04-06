@@ -93,8 +93,7 @@ const Login = () => {
         </form>
         
         <div className="text-center text-orange-100 text-sm">
-          <p>Default credentials:</p>
-          <p>Username: admin | Password: admin123</p>
+          <p>Abhimata Cafe Management System</p>
         </div>
       </div>
     </div>

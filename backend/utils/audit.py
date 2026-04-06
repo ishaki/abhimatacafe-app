@@ -1,5 +1,9 @@
+import logging
 from models import db, AuditLog
 from flask import request
+
+logger = logging.getLogger(__name__)
+
 
 def log_audit(user_id, action, resource_type=None, resource_id=None, details=None):
     """Log audit trail for sensitive operations"""
@@ -15,4 +19,5 @@ def log_audit(user_id, action, resource_type=None, resource_id=None, details=Non
         db.session.add(audit)
         db.session.commit()
     except Exception as e:
-        print(f"Audit logging failed: {e}")
+        logger.error(f"Audit logging failed: {e}")
+        db.session.rollback()

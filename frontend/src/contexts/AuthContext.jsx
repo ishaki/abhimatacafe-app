@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
-import axios from 'axios'
+import api from '../services/api'
 
 const AuthContext = createContext()
 
@@ -16,21 +16,12 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(sessionStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
 
-  // Configure axios defaults
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`
-    } else {
-      delete axios.defaults.headers.common['Authorization']
-    }
-  }, [token])
-
   // Check if user is authenticated on app load
   useEffect(() => {
     const checkAuth = async () => {
       if (token) {
         try {
-          const response = await axios.get('http://localhost:5000/api/auth/me')
+          const response = await api.get('/auth/me')
           setUser(response.data)
         } catch (error) {
           console.error('Auth check failed:', error)
@@ -38,7 +29,6 @@ export const AuthProvider = ({ children }) => {
           setToken(null)
           setUser(null)
           sessionStorage.removeItem('token')
-          delete axios.defaults.headers.common['Authorization']
         }
       }
       setLoading(false)
@@ -52,7 +42,7 @@ export const AuthProvider = ({ children }) => {
     const refreshInterval = setInterval(async () => {
       if (token) {
         try {
-          const response = await axios.post('http://localhost:5000/api/auth/refresh')
+          const response = await api.post('/auth/refresh')
           const newToken = response.data.access_token
           setToken(newToken)
           sessionStorage.setItem('token', newToken)
@@ -68,22 +58,22 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await api.post('/auth/login', {
         username,
         password
       })
-      
+
       const { access_token, user: userData } = response.data
-      
+
       setToken(access_token)
       setUser(userData)
       sessionStorage.setItem('token', access_token)
-      
+
       return { success: true }
     } catch (error) {
-      return { 
-        success: false, 
-        error: error.response?.data?.error || 'Login failed' 
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Login failed'
       }
     }
   }
@@ -92,7 +82,7 @@ export const AuthProvider = ({ children }) => {
     try {
       // Call backend logout to invalidate session
       if (token) {
-        await axios.post('http://localhost:5000/api/auth/logout')
+        await api.post('/auth/logout')
       }
     } catch (error) {
       console.error('Logout error:', error)
@@ -100,7 +90,6 @@ export const AuthProvider = ({ children }) => {
       setToken(null)
       setUser(null)
       sessionStorage.removeItem('token')
-      delete axios.defaults.headers.common['Authorization']
     }
   }
 

@@ -1,9 +1,10 @@
-from flask import Flask, request, make_response, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
+import logging
 from datetime import timedelta
 from dotenv import load_dotenv
 from models import db
@@ -21,33 +22,63 @@ from routes.settings import settings_bp
 load_dotenv()
 
 def create_app():
-    app = Flask(__name__)
-    
-    # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'fallback-dev-key')
-    if app.config['SECRET_KEY'] == 'fallback-dev-key':
-        app.logger.warning("Using fallback SECRET_KEY - Set SECRET_KEY in environment!")
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///abhimata_cafe.db'
+    app = Flask(__name__,
+                static_folder='static_frontend',
+                static_url_path='')
+
+    # Environment detection
+    environment = os.environ.get('FLASK_ENV', 'development')
+    is_production = environment == 'production'
+
+    # Configuration — enforce secrets in production
+    secret_key = os.environ.get('SECRET_KEY')
+    jwt_secret = os.environ.get('JWT_SECRET_KEY')
+
+    if is_production:
+        if not secret_key or not jwt_secret:
+            raise RuntimeError(
+                "SECRET_KEY and JWT_SECRET_KEY must be set in production! "
+                "Generate with: python -c \"import secrets; print(secrets.token_hex(32))\""
+            )
+        app.config['SECRET_KEY'] = secret_key
+        app.config['JWT_SECRET_KEY'] = jwt_secret
+    else:
+        app.config['SECRET_KEY'] = secret_key or 'fallback-dev-key'
+        app.config['JWT_SECRET_KEY'] = jwt_secret or 'fallback-jwt-key'
+        if not secret_key:
+            app.logger.warning("Using fallback SECRET_KEY - Set SECRET_KEY in environment!")
+        if not jwt_secret:
+            app.logger.warning("Using fallback JWT_SECRET_KEY - Set JWT_SECRET_KEY in environment!")
+
+    # Database — use volume path in production
+    db_path = os.environ.get('DATABASE_PATH', 'abhimata_cafe.db')
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'fallback-jwt-key')
-    if app.config['JWT_SECRET_KEY'] == 'fallback-jwt-key':
-        app.logger.warning("Using fallback JWT_SECRET_KEY - Set JWT_SECRET_KEY in environment!")
-    
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)  # Expires after 24 hours
-    
+
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
+
+    # Configure logging for production
+    if is_production:
+        logging.basicConfig(level=logging.WARNING)
+        app.logger.setLevel(logging.WARNING)
+
     # Initialize extensions
     db.init_app(app)
-    CORS(app, 
-         origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+
+    # CORS — use environment-based allowed origins
+    allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
+    allowed_origins = [origin.strip() for origin in allowed_origins]
+
+    CORS(app,
+         origins=allowed_origins,
          methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
          allow_headers=["Content-Type", "Authorization"],
          supports_credentials=True,
          max_age=3600)
+
     jwt = JWTManager(app)
     socketio = init_socketio(app)
-    
+
     # Initialize rate limiter
     limiter = Limiter(
         app=app,
@@ -56,13 +87,13 @@ def create_app():
         storage_uri="memory://",
         strategy="fixed-window"
     )
-    
+
     # Apply stricter limits to auth endpoints
     limiter.limit("5 per minute")(auth_bp)
     # Financial operations
     limiter.limit("20 per minute")(billing_bp)
     limiter.limit("20 per minute")(expenses_bp)
-    
+
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(menu_bp, url_prefix='/api/menu')
@@ -72,11 +103,16 @@ def create_app():
     app.register_blueprint(expenses_bp, url_prefix='/api/expenses')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
-    
+
     # Create tables
     with app.app_context():
         db.create_all()
-    
+
+    # Health check endpoint
+    @app.route('/api/health')
+    def health_check():
+        return jsonify({'status': 'healthy'}), 200
+
     # Add security headers
     @app.after_request
     def add_security_headers(response):
@@ -85,41 +121,65 @@ def create_app():
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+
+        # CSP — allow self, inline styles (Tailwind), WebSocket, and data URIs for images
+        csp_directives = [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data:",
+            "connect-src 'self' wss: ws:",
+            "font-src 'self'",
+            "frame-ancestors 'none'",
+        ]
+        response.headers['Content-Security-Policy'] = '; '.join(csp_directives)
+
         return response
-    
-    # Handle preflight requests
-    @app.before_request
-    def handle_preflight():
-        if request.method == "OPTIONS":
-            response = make_response()
-            response.headers.add("Access-Control-Allow-Origin", request.headers.get('Origin', '*'))
-            response.headers.add('Access-Control-Allow-Headers', "Content-Type, Authorization")
-            response.headers.add('Access-Control-Allow-Methods', "GET, POST, PUT, DELETE, PATCH")
-            response.headers.add('Access-Control-Max-Age', '3600')
-            return response
-    
-    # Error handlers
+
+    # Error handlers — generic messages only, no details leaked
     @app.errorhandler(Exception)
     def handle_error(error):
         """Generic error handler to prevent information disclosure"""
-        # Log the actual error for debugging
         app.logger.error(f"Error: {str(error)}", exc_info=True)
-        
-        # Return generic message to client
         return jsonify({'error': 'An error occurred processing your request'}), 500
 
     @app.errorhandler(404)
     def not_found(error):
+        # If API route, return JSON 404
+        if request.path.startswith('/api/'):
+            return jsonify({'error': 'Resource not found'}), 404
+        # Otherwise serve frontend (SPA routing)
+        if app.static_folder and os.path.exists(os.path.join(app.static_folder, 'index.html')):
+            return send_from_directory(app.static_folder, 'index.html')
         return jsonify({'error': 'Resource not found'}), 404
 
     @app.errorhandler(403)
     def forbidden(error):
         return jsonify({'error': 'Access forbidden'}), 403
-    
+
+    # Serve frontend static files (SPA catch-all)
+    @app.route('/', defaults={'path': ''})
+    @app.route('/<path:path>')
+    def serve_frontend(path):
+        if not app.static_folder:
+            return jsonify({'error': 'Frontend not built'}), 404
+        # Serve actual static files if they exist
+        static_file = os.path.join(app.static_folder, path)
+        if path and os.path.exists(static_file) and os.path.isfile(static_file):
+            return send_from_directory(app.static_folder, path)
+        # SPA fallback — serve index.html for all other routes
+        index_path = os.path.join(app.static_folder, 'index.html')
+        if os.path.exists(index_path):
+            return send_from_directory(app.static_folder, 'index.html')
+        return jsonify({'error': 'Frontend not built. Run: cd frontend && npm run build'}), 404
+
     return app, socketio
 
 app, socketio = create_app()
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    debug = os.environ.get('FLASK_ENV') != 'production'
+    port = int(os.environ.get('PORT', 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=debug)

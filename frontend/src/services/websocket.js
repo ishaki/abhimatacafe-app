@@ -1,5 +1,7 @@
 import { io } from 'socket.io-client'
 
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || ''
+
 class WebSocketService {
   constructor() {
     this.socket = null
@@ -8,7 +10,7 @@ class WebSocketService {
 
   connect() {
     if (!this.socket) {
-      this.socket = io('http://localhost:5000', {
+      this.socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling']
       })
 

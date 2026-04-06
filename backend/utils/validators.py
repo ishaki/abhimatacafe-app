@@ -1,5 +1,6 @@
 import re
-from flask import jsonify
+from markupsafe import escape
+
 
 def validate_table_number(table_number):
     """Validate table number (1-100)"""
@@ -11,6 +12,7 @@ def validate_table_number(table_number):
     except (ValueError, TypeError):
         return False, "Invalid table number"
 
+
 def validate_quantity(quantity):
     """Validate quantity (1-50)"""
     try:
@@ -20,6 +22,7 @@ def validate_quantity(quantity):
         return False, "Quantity must be between 1 and 50"
     except (ValueError, TypeError):
         return False, "Invalid quantity"
+
 
 def validate_price(price):
     """Validate price (0-10000000)"""
@@ -31,33 +34,36 @@ def validate_price(price):
     except (ValueError, TypeError):
         return False, "Invalid price"
 
+
 def sanitize_string(text, max_length=200, allow_special=False):
-    """Sanitize and validate string input"""
+    """Sanitize and validate string input using proper HTML escaping."""
     if not text:
         return ""
-    
+
     text = str(text).strip()
-    
-    # Remove potential XSS characters
-    text = text.replace('<', '').replace('>', '').replace('script', '')
-    
+
+    # Use markupsafe for proper HTML entity escaping
+    text = str(escape(text))
+
     if not allow_special:
         # Allow only alphanumeric, spaces, and basic punctuation
         text = re.sub(r'[^a-zA-Z0-9\s\.,\-\(\)@]', '', text)
-    
+
     return text[:max_length]
+
 
 def validate_phone(phone):
     """Validate phone number (Indonesian format)"""
     if not phone:
         return True, ""
-    
+
     phone = re.sub(r'[^\d\+]', '', str(phone))
-    
+
     if len(phone) < 10 or len(phone) > 15:
         return False, "Phone number must be 10-15 digits"
-    
+
     return True, phone
+
 
 def validate_role(role):
     """Validate user role"""
@@ -66,9 +72,23 @@ def validate_role(role):
         return True, role
     return False, f"Invalid role. Must be one of: {', '.join(valid_roles)}"
 
+
 def validate_order_type(order_type):
     """Validate order type"""
     valid_types = ['dine_in', 'take_away']
     if order_type in valid_types:
         return True, order_type
     return False, f"Invalid order type. Must be one of: {', '.join(valid_types)}"
+
+
+def validate_password_strength(password):
+    """Validate password meets minimum strength requirements."""
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters"
+    if not re.search(r'[A-Z]', password):
+        return False, "Password must contain at least one uppercase letter"
+    if not re.search(r'[a-z]', password):
+        return False, "Password must contain at least one lowercase letter"
+    if not re.search(r'[0-9]', password):
+        return False, "Password must contain at least one number"
+    return True, "Password is valid"

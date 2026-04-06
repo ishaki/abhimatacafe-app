@@ -13,7 +13,7 @@ def get_settings():
         settings = Settings.get_settings()
         return jsonify(settings.to_dict()), 200
     except Exception as e:
-        return jsonify({'error': 'Failed to retrieve settings', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to retrieve settings'}), 500
 
 @settings_bp.route('', methods=['POST'])
 @jwt_required()
@@ -54,7 +54,7 @@ def update_settings():
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Failed to update settings', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to update settings'}), 500
 
 @settings_bp.route('/reset', methods=['POST'])
 @jwt_required()
@@ -94,4 +94,4 @@ def reset_settings():
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Failed to reset settings', 'details': str(e)}), 500
+        return jsonify({'error': 'Failed to reset settings'}), 500
