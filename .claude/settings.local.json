@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python init_db.py:*)",
+      "Bash(python:*)",
+      "Bash(pip install:*)",
+      "Bash(timeout /t 3)",
+      "Bash(curl:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
