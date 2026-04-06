@@ -17,6 +17,7 @@ from routes.billing import billing_bp
 from routes.expenses import expenses_bp
 from routes.reports import reports_bp
 from routes.settings import settings_bp
+from routes.customer import customer_bp
 
 # Load environment variables
 load_dotenv()
@@ -72,7 +73,7 @@ def create_app():
     CORS(app,
          origins=allowed_origins,
          methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-         allow_headers=["Content-Type", "Authorization"],
+         allow_headers=["Content-Type", "Authorization", "X-Customer-Token"],
          supports_credentials=True,
          max_age=3600)
 
@@ -103,6 +104,10 @@ def create_app():
     app.register_blueprint(expenses_bp, url_prefix='/api/expenses')
     app.register_blueprint(reports_bp, url_prefix='/api/reports')
     app.register_blueprint(settings_bp, url_prefix='/api/settings')
+    app.register_blueprint(customer_bp, url_prefix='/api/customer')
+
+    # Customer endpoints — lighter rate limits
+    limiter.limit("30 per minute")(customer_bp)
 
     # Create tables
     with app.app_context():
