@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Settings, Save, RefreshCw, Database, Wifi, Bell, Shield, Coffee, Info } from 'lucide-react'
+import { Settings, Save, RefreshCw, Database, Wifi, Bell, Shield, Coffee, Info, QrCode, Download, Eye } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import NavigationHeader from '../components/NavigationHeader'
 import Button from '../components/Button'
 import { useSettings } from '../contexts/SettingsContext'
 
+const API_BASE = import.meta.env.VITE_API_URL || '/api'
+
 const SettingsPage = () => {
   const { settings, updateSettings, loading: settingsLoading } = useSettings()
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showQrPreview, setShowQrPreview] = useState(false)
+  const [downloadingQr, setDownloadingQr] = useState(false)
   const [systemInfo, setSystemInfo] = useState({
     version: '1.0.0',
     lastBackup: null,
@@ -223,6 +227,136 @@ const SettingsPage = () => {
                   onChange={(e) => handleInputChange('serviceCharge', parseFloat(e.target.value))}
                 />
               </div>
+            </div>
+          </div>
+
+          {/* Customer Ordering Settings */}
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center mb-4">
+              <QrCode className="h-6 w-6 text-abhimata-orange mr-2" />
+              <h2 className="text-xl font-semibold">Customer Ordering</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Tables</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-abhimata-orange focus:border-abhimata-orange"
+                  value={settings.totalTables || 10}
+                  onChange={(e) => handleInputChange('totalTables', parseInt(e.target.value) || 1)}
+                />
+                <p className="text-xs text-gray-500 mt-1">Number of tables for QR code generation</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">App URL</label>
+                <input
+                  type="url"
+                  placeholder="https://your-cafe-app.com"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-abhimata-orange focus:border-abhimata-orange"
+                  value={settings.appUrl || ''}
+                  onChange={(e) => handleInputChange('appUrl', e.target.value)}
+                />
+                <p className="text-xs text-gray-500 mt-1">Base URL for QR codes (your deployed app URL)</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Show Price Breakdown</h3>
+                <p className="text-sm text-gray-600">Show tax and service charge to customers</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.showPriceBreakdown !== false}
+                  onChange={(e) => handleInputChange('showPriceBreakdown', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-abhimata-orange rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-abhimata-orange"></div>
+              </label>
+            </div>
+
+            {/* QR Code Actions */}
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="text-sm font-semibold text-gray-700">QR Codes</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowQrPreview(!showQrPreview)}
+                  className="flex-1 bg-abhimata-orange text-white py-2 px-4 rounded-lg hover:bg-abhimata-orange-dark flex items-center justify-center gap-2"
+                >
+                  <Eye className="h-4 w-4" />
+                  {showQrPreview ? 'Hide Preview' : 'Preview QR Codes'}
+                </button>
+                <button
+                  onClick={async () => {
+                    setDownloadingQr(true)
+                    try {
+                      const resp = await api.get('/settings/qr/all', { responseType: 'blob' })
+                      const url = window.URL.createObjectURL(new Blob([resp.data]))
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = 'qr-codes.zip'
+                      a.click()
+                      window.URL.revokeObjectURL(url)
+                      toast.success('QR codes downloaded')
+                    } catch {
+                      toast.error('Failed to download QR codes. Save settings with App URL first.')
+                    } finally {
+                      setDownloadingQr(false)
+                    }
+                  }}
+                  disabled={downloadingQr}
+                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <Download className="h-4 w-4" />
+                  {downloadingQr ? 'Downloading...' : 'Download All (ZIP)'}
+                </button>
+              </div>
+
+              {/* QR Preview Grid */}
+              {showQrPreview && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
+                  {Array.from({ length: settings.totalTables || 10 }, (_, i) => i + 1).map(num => (
+                    <div key={`table-${num}`} className="bg-gray-50 rounded-lg p-3 text-center">
+                      <img
+                        src={`${API_BASE}/settings/qr/${num}`}
+                        alt={`Table ${num} QR`}
+                        className="w-full aspect-square object-contain mb-2"
+                        onError={(e) => { e.target.style.display = 'none' }}
+                      />
+                      <p className="text-xs font-medium text-gray-700">Table {num}</p>
+                      <a
+                        href={`${API_BASE}/settings/qr/${num}`}
+                        download={`table-${num}-qr.png`}
+                        className="text-xs text-abhimata-orange hover:underline"
+                      >
+                        Download
+                      </a>
+                    </div>
+                  ))}
+                  {/* Takeaway QR */}
+                  <div className="bg-blue-50 rounded-lg p-3 text-center">
+                    <img
+                      src={`${API_BASE}/settings/qr/takeaway`}
+                      alt="Takeaway QR"
+                      className="w-full aspect-square object-contain mb-2"
+                      onError={(e) => { e.target.style.display = 'none' }}
+                    />
+                    <p className="text-xs font-medium text-blue-700">Takeaway</p>
+                    <a
+                      href={`${API_BASE}/settings/qr/takeaway`}
+                      download="takeaway-qr.png"
+                      className="text-xs text-abhimata-orange hover:underline"
+                    >
+                      Download
+                    </a>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

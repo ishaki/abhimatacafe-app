@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingCart, Clock, CheckCircle, CreditCard, Edit, Eye, ShoppingBag, Utensils } from 'lucide-react'
+import { ShoppingCart, Clock, CheckCircle, CreditCard, Edit, Eye, ShoppingBag, Utensils, XCircle, AlertCircle, Users, Smartphone } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import NavigationHeader from '../components/NavigationHeader'
@@ -48,12 +48,16 @@ const OrderList = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
+      case 'waiting_approval':
+        return <AlertCircle className="h-4 w-4 text-orange-500" />
       case 'pending':
         return <Clock className="h-4 w-4 text-yellow-500" />
       case 'complete':
         return <CheckCircle className="h-4 w-4 text-green-500" />
       case 'paid':
         return <CreditCard className="h-4 w-4 text-blue-500" />
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-red-500" />
       default:
         return <Clock className="h-4 w-4 text-gray-500" />
     }
@@ -61,15 +65,24 @@ const OrderList = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'waiting_approval':
+        return 'bg-orange-100 text-orange-800'
       case 'pending':
         return 'bg-yellow-100 text-yellow-800'
       case 'complete':
         return 'bg-green-100 text-green-800'
       case 'paid':
         return 'bg-blue-100 text-blue-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  const getStatusLabel = (status) => {
+    if (status === 'waiting_approval') return 'Waiting Approval'
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
   // Filter orders to show only current date orders
@@ -139,10 +152,12 @@ const OrderList = () => {
           <div className="mb-6">
             <div className="flex space-x-2">
               {[
+                { key: 'waiting_approval', label: 'Waiting', count: currentDateOrders.filter(o => o.status === 'waiting_approval').length },
                 { key: 'pending', label: 'Pending', count: currentDateOrders.filter(o => o.status === 'pending').length },
                 { key: 'complete', label: 'Complete', count: currentDateOrders.filter(o => o.status === 'complete').length },
                 { key: 'paid', label: 'Paid', count: currentDateOrders.filter(o => o.status === 'paid').length },
-                { key: 'all', label: 'All Orders', count: currentDateOrders.length }
+                { key: 'rejected', label: 'Rejected', count: currentDateOrders.filter(o => o.status === 'rejected').length },
+                { key: 'all', label: 'All', count: currentDateOrders.length }
               ].map(filter => (
                 <button
                   key={filter.key}
@@ -180,16 +195,30 @@ const OrderList = () => {
                     <div>
                       <div className="flex items-center space-x-2 mb-1">
                         <h3 className="text-lg font-bold text-gray-900">
-                          Order: Table {order.table_number}
+                          {order.order_type === 'take_away'
+                            ? `Takeaway${order.queue_number ? ` #${order.queue_number}` : ''}`
+                            : `Table ${order.table_number}`}
                         </h3>
                         {order.order_type === 'take_away' ? (
                           <ShoppingBag className="h-4 w-4 text-blue-600" title="Take Away Order" />
                         ) : (
                           <Utensils className="h-4 w-4 text-green-600" title="Dine In Order" />
                         )}
+                        {order.order_source === 'customer' ? (
+                          <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700" title="Customer Order">
+                            <Smartphone className="h-3 w-3 inline mr-0.5" />Customer
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600" title="Staff Order">
+                            <Users className="h-3 w-3 inline mr-0.5" />Staff
+                          </span>
+                        )}
                       </div>
                       {order.customer_name && (
                         <p className="text-sm text-gray-600">By {order.customer_name}</p>
+                      )}
+                      {order.customer_phone && (
+                        <p className="text-xs text-gray-400">{order.customer_phone}</p>
                       )}
                     </div>
                     <div className="text-right">
@@ -198,7 +227,7 @@ const OrderList = () => {
                         <span className="ml-1">{formatTime(order.created_at)}</span>
                       </div>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
-                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                        {getStatusLabel(order.status)}
                       </span>
                     </div>
                   </div>

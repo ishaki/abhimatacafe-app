@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
 import { SettingsProvider } from './contexts/SettingsContext'
+import { CustomerSessionProvider } from './contexts/CustomerSessionContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import MenuManagement from './pages/MenuManagement'
@@ -14,7 +15,11 @@ import Expenses from './pages/Expenses'
 import Reports from './pages/Reports'
 import UserManagement from './pages/UserManagement'
 import Settings from './pages/Settings'
+import IncomingOrders from './pages/IncomingOrders'
 import ProtectedRoute from './components/ProtectedRoute'
+import CustomerLanding from './pages/customer/CustomerLanding'
+import CustomerMenu from './pages/customer/CustomerMenu'
+import CustomerOrderStatus from './pages/customer/CustomerOrderStatus'
 
 function App() {
   return (
@@ -37,6 +42,11 @@ function App() {
               <Route path="/menu" element={
                 <ProtectedRoute>
                   <MenuManagement />
+                </ProtectedRoute>
+              } />
+              <Route path="/incoming-orders" element={
+                <ProtectedRoute>
+                  <IncomingOrders />
                 </ProtectedRoute>
               } />
               <Route path="/orders" element={
@@ -85,6 +95,14 @@ function App() {
                 </ProtectedRoute>
               } />
               <Route path="/" element={<Navigate to="/login" replace />} />
+
+              {/* Customer self-ordering routes (no auth required) */}
+              <Route path="/table/:tableNumber" element={<CustomerSessionProvider><CustomerLanding /></CustomerSessionProvider>} />
+              <Route path="/table/:tableNumber/menu" element={<CustomerSessionProvider><CustomerMenu /></CustomerSessionProvider>} />
+              <Route path="/table/:tableNumber/order/:orderId" element={<CustomerSessionProvider><CustomerOrderStatus /></CustomerSessionProvider>} />
+              <Route path="/order/takeaway" element={<CustomerSessionProvider><CustomerLanding /></CustomerSessionProvider>} />
+              <Route path="/order/takeaway/menu" element={<CustomerSessionProvider><CustomerMenu /></CustomerSessionProvider>} />
+              <Route path="/order/takeaway/order/:orderId" element={<CustomerSessionProvider><CustomerOrderStatus /></CustomerSessionProvider>} />
             </Routes>
             <Toaster position="top-right" />
           </div>

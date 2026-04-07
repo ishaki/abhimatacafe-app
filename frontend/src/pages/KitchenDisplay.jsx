@@ -192,7 +192,9 @@ const KitchenDisplay = () => {
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-lg font-bold text-gray-900">
-                      Order: Table {order.table_number}
+                      {order.order_type === 'take_away'
+                        ? `Takeaway${order.queue_number ? ` #${order.queue_number}` : ''}`
+                        : `Table ${order.table_number}`}
                     </h3>
                     <div className="flex items-center space-x-1">
                       {order.order_type === 'take_away' ? (
@@ -202,6 +204,11 @@ const KitchenDisplay = () => {
                       )}
                     </div>
                   </div>
+                  {order.order_source === 'customer' && (
+                    <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 mb-1">
+                      Customer Order
+                    </span>
+                  )}
                   {order.customer_name && (
                     <p className="text-sm text-gray-600 mb-2">By {order.customer_name}</p>
                   )}

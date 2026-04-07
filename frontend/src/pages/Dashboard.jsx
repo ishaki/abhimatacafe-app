@@ -1,6 +1,6 @@
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Coffee, Users, ShoppingCart, ChefHat, CreditCard, BarChart3, Settings, List } from 'lucide-react'
+import { LogOut, Coffee, Users, ShoppingCart, ChefHat, CreditCard, BarChart3, Settings, List, ClipboardList } from 'lucide-react'
 import NavigationHeader from '../components/NavigationHeader'
 
 const Dashboard = () => {
@@ -35,6 +35,7 @@ const Dashboard = () => {
   const getMenuItems = () => {
     const baseItems = [
       { name: 'Menu Management', icon: Coffee, path: '/menu', roles: ['admin'] },
+      { name: 'Incoming Orders', icon: ClipboardList, path: '/incoming-orders', roles: ['admin', 'waitress'] },
       { name: 'Create Order', icon: ShoppingCart, path: '/orders/create', roles: ['admin', 'waitress'] },
       { name: 'Order List', icon: List, path: '/orders', roles: ['admin', 'waitress'] },
       { name: 'Kitchen Display', icon: ChefHat, path: '/kitchen', roles: ['admin', 'kitchen'] },

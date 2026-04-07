@@ -1,6 +1,6 @@
 # Abhimata Cafe Management System - Task List
 
-## Project Status: ~85% Core Complete | Customer Self-Order: Planned
+## Project Status: ~95% Core Complete | Customer Self-Order: Complete
 
 ### COMPLETED FEATURES
 
@@ -330,126 +330,61 @@ Full flow: waiting_approval → pending → complete → paid
 
 ---
 
-### Phase 4B: Customer Self-Order — Frontend (HIGH PRIORITY)
+### Phase 4B: Customer Self-Order — Frontend — COMPLETED
 
 #### 20. Customer Layout & Routing
-**Status:** Not Started
-**Files:** `frontend/src/App.jsx`, new layout component
-- [ ] Create `CustomerLayout.jsx` — minimal layout (cafe header + branding, no staff nav)
-- [ ] Add unprotected routes in `App.jsx`:
-  - `/table/:tableNumber` — Landing/guest login page
-  - `/table/:tableNumber/menu` — Menu browsing + cart
-  - `/table/:tableNumber/order/:orderId` — Order confirmation + tracking
-  - `/order/takeaway` — Takeaway landing page
-  - `/order/takeaway/menu` — Takeaway menu + cart
-  - `/order/takeaway/order/:orderId` — Takeaway order tracking
-- [ ] Create `CustomerSessionContext.jsx`
-  - Store customer session token in sessionStorage
-  - Provide table number / takeaway mode from URL
-  - Auto-check session validity on mount
-  - Provide order_id if customer already has an active order
+**Status:** Complete
+**Files:** `frontend/src/App.jsx`, `frontend/src/pages/customer/CustomerLayout.jsx`, `frontend/src/contexts/CustomerSessionContext.jsx`
+- [x] Create `CustomerLayout.jsx` — minimal layout (cafe header + branding, no staff nav)
+- [x] Add unprotected routes in `App.jsx`
+- [x] Create `CustomerSessionContext.jsx` with session management
 
 #### 21. Customer Landing Page (QR Entry Point)
-**Status:** Not Started
+**Status:** Complete
 **File:** `frontend/src/pages/customer/CustomerLanding.jsx`
-- [ ] Cafe branding header (name from settings)
-- [ ] Table mode: show "Table {n}" / Takeaway mode: show "Takeaway Order"
-- [ ] Form: name (required), phone (optional)
-- [ ] Order type selector (dine_in / take_away) — table QR shows both, takeaway QR defaults take_away
-- [ ] "Start Ordering" button → creates session → redirects to menu
-- [ ] If session already exists with active order → redirect to order tracking
-- [ ] Mobile-first, large touch targets
-- [ ] Handle invalid table number gracefully (show error)
+- [x] All features implemented (branding, form, order type selector, redirects)
 
 #### 22. Customer Menu Page
-**Status:** Not Started
+**Status:** Complete
 **File:** `frontend/src/pages/customer/CustomerMenu.jsx`
-- [ ] Fetch menu from `/api/customer/menu`
-- [ ] Fetch settings from `/api/customer/settings` (for currency, price display)
-- [ ] Category tabs (horizontal scrollable on mobile)
-- [ ] Search bar
-- [ ] Menu item cards: image, name, description, price
-- [ ] "Add to Cart" with quantity selector (+/-)
-- [ ] Notes input per item (special instructions)
-- [ ] Floating cart summary bar at bottom (item count + total + "View Cart")
-- [ ] Mobile-first card layout
-- [ ] Loading skeleton, empty state
+- [x] All features implemented (menu fetch, categories, search, cart, notes modal, price breakdown)
 
 #### 23. Customer Cart & Order Submission
-**Status:** Not Started
-**File:** `frontend/src/pages/customer/CustomerCart.jsx`
-- [ ] Cart item list: name, qty, notes, subtotal
-- [ ] Quantity adjustment (+/-) and remove
-- [ ] Price display based on `show_price_breakdown` setting:
-  - If true: subtotal + tax % + service % = total
-  - If false: just total
-- [ ] "Place Order" with confirmation dialog
-- [ ] Submit to `/api/customer/orders` (or `/api/customer/orders/{id}/items` if adding to existing)
-- [ ] Show queue number for takeaway orders
-- [ ] Redirect to tracking page on success
-- [ ] Error handling (item unavailable, session expired, already has order)
+**Status:** Complete (integrated into CustomerMenu.jsx as cart drawer)
+- [x] All features implemented (cart drawer, qty controls, price breakdown, order submission)
 
 #### 24. Order Confirmation & Tracking Page
-**Status:** Not Started
+**Status:** Complete
 **File:** `frontend/src/pages/customer/CustomerOrderStatus.jsx`
-- [ ] Order number / queue number display (prominent)
-- [ ] Order items summary with item statuses
-- [ ] Visual status tracker:
-  - Waiting Approval → Preparing → Ready (for approved orders)
-  - Rejected → show reason + "Try Again" button
-- [ ] Real-time status via WebSocket (join room `table_{n}` / `takeaway_{queue}`)
-- [ ] "Add More Items" button → back to menu, adds to same order
-- [ ] Thank you message on completion
-- [ ] Auto-refresh fallback if WebSocket disconnects
+- [x] All features implemented (queue number, status tracker, WebSocket real-time, add more items)
 
 ---
 
-### Phase 4C: Staff Integration (MEDIUM PRIORITY)
+### Phase 4C: Staff Integration — COMPLETED
 
-#### 25. Incoming Customer Orders Page (NEW — Dedicated)
-**Status:** Not Started
+#### 25. Incoming Customer Orders Page
+**Status:** Complete
 **File:** `frontend/src/pages/IncomingOrders.jsx`
-- [ ] New page: `/incoming-orders` (protected, waitress + admin only)
-- [ ] List all orders with `status='waiting_approval'`
-- [ ] Each card shows: table/queue number, customer name, items, total, time waiting
-- [ ] "Approve" button → calls `/api/orders/{id}/approve` → order moves to kitchen
-- [ ] "Reject" button → modal with required reason textarea → calls `/api/orders/{id}/reject`
-- [ ] For orders with new items pending: show which items are new vs already approved
-- [ ] "Approve New Items" button for partial approval
-- [ ] Real-time updates via WebSocket (`customer_order_pending`, `customer_items_pending`)
-- [ ] Notification sound when new customer order arrives
-- [ ] Badge count in navigation header
-- [ ] Auto-refresh as fallback
-- [ ] Add route to App.jsx and navigation in Dashboard
+- [x] All features implemented (approve/reject, WebSocket, notifications, badge count, auto-refresh)
 
 #### 26. Staff Notification Enhancements
-**Status:** Not Started
-- [ ] Add distinct notification sound for customer orders (different from staff orders)
-- [ ] Toast notification with "New Customer Order — Table 5" or "New Takeaway Order #12"
-- [ ] Show badge count of pending approvals in nav header
-- [ ] "Customer Order" badge/label in kitchen display for approved customer orders
-- [ ] Order source indicator in OrderDetailsModal
+**Status:** Complete
+- [x] Toast notifications for customer orders
+- [x] Badge count of pending approvals in NavigationHeader
+- [x] "Customer Order" badge in kitchen display and order list
+- [x] Notification sound on new customer order
 
 #### 27. QR Code Management UI (Admin)
-**Status:** Not Started
-**File:** `frontend/src/pages/Settings.jsx` (extend existing)
-- [ ] New section: "Table QR Codes"
-- [ ] Input: total number of tables (saves to settings)
-- [ ] Input: app URL (saves to settings)
-- [ ] "Generate QR Codes" button → shows preview grid
-- [ ] Preview: QR code image + table number label for each table + 1 takeaway
-- [ ] Download individual QR as PNG
-- [ ] "Download All" as ZIP
-- [ ] Print-friendly layout
+**Status:** Complete
+**File:** `frontend/src/pages/Settings.jsx` (extended)
+- [x] Customer Ordering settings section (total tables, app URL, show price breakdown)
+- [x] QR preview grid with individual download
+- [x] Download All as ZIP
 
 #### 28. Order List & Kitchen Display Updates
-**Status:** Not Started
-- [ ] OrderList: add `order_source` badge (Staff / Customer)
-- [ ] OrderList: add filter by source and by `waiting_approval` status
-- [ ] OrderList: show customer name/phone for customer orders
-- [ ] OrderList: show queue number for takeaway orders
-- [ ] KitchenDisplay: show "Customer Order" badge on approved customer orders
-- [ ] KitchenDisplay: show queue number for takeaway
+**Status:** Complete
+- [x] OrderList: order_source badge (Staff/Customer), waiting_approval/rejected filters, queue number
+- [x] KitchenDisplay: "Customer Order" badge, queue number for takeaway
 
 ---
 
@@ -531,28 +466,12 @@ Full flow: waiting_approval → pending → complete → paid
 7. Visual Charts in Reports
 8. Dashboard Real-time Statistics
 
-### Phase 4: Customer Self-Ordering via QR Code (NEW)
-**4A — Backend** (do first)
-- 13. Database schema changes (Order, OrderItem, CustomerSession, DailyCounter, Settings)
-- 14. Customer session API
-- 15. Customer menu + settings API (public)
-- 16. Customer order API (submit, track, add items)
-- 17. Order approval/rejection API (staff)
-- 18. QR code generation API
-- 19. WebSocket events for customer orders
+### Phase 4: Customer Self-Ordering via QR Code — COMPLETED
+**4A — Backend** — COMPLETED
+**4B — Frontend: Customer Pages** — COMPLETED
+**4C — Staff Integration** — COMPLETED
 
-**4B — Frontend: Customer Pages** (do second)
-- 20. Customer layout & routing
-- 21. Customer landing page (table + takeaway)
-- 22. Customer menu browsing page
-- 23. Customer cart & order submission
-- 24. Order confirmation & status tracking
-
-**4C — Frontend: Staff Integration** (do third)
-- 25. Incoming Customer Orders page (dedicated, with approve/reject)
-- 26. Staff notification enhancements (sound, toast, badge)
-- 27. QR code management UI (admin settings)
-- 28. Order list & kitchen display updates
+- All 28 tasks completed (backend APIs, customer frontend, staff integration)
 
 ### Phase 5: Polish & Optimization
 9. Export/Print Reports
@@ -578,5 +497,5 @@ Full flow: waiting_approval → pending → complete → paid
 
 ---
 
-**Last Updated:** April 6, 2026
-**Next Milestone:** Phase 4A — Customer Self-Order Backend
+**Last Updated:** April 7, 2026
+**Next Milestone:** Phase 5 — Polish & Optimization (or Phase 3 enhancements)

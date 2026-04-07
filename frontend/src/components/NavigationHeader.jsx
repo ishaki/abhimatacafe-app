@@ -2,12 +2,15 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Home, Coffee, Bell, User, LogOut } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../services/api'
+import websocket from '../services/websocket'
 
 const NavigationHeader = ({ title, showNotifications = false }) => {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
   const userMenuRef = useRef(null)
 
   const handleHome = () => {
@@ -18,6 +21,38 @@ const NavigationHeader = ({ title, showNotifications = false }) => {
     logout()
     navigate('/login')
   }
+
+  // Fetch pending approval count for waitress/admin
+  useEffect(() => {
+    if (!user || !['admin', 'waitress'].includes(user.role)) return
+
+    const fetchPendingCount = async () => {
+      try {
+        const resp = await api.get('/orders/pending-approval')
+        const total = (resp.data.waiting_approval?.length || 0) + (resp.data.pending_items?.length || 0)
+        setPendingCount(total)
+      } catch {}
+    }
+
+    fetchPendingCount()
+
+    // Listen for new customer orders
+    websocket.connect()
+    const refresh = () => fetchPendingCount()
+    websocket.on('customer_order_pending', refresh)
+    websocket.on('customer_items_pending', refresh)
+    websocket.on('new_order', refresh)
+
+    // Poll every 30 seconds as fallback
+    const interval = setInterval(fetchPendingCount, 30000)
+
+    return () => {
+      websocket.off('customer_order_pending', refresh)
+      websocket.off('customer_items_pending', refresh)
+      websocket.off('new_order', refresh)
+      clearInterval(interval)
+    }
+  }, [user])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -48,7 +83,8 @@ const NavigationHeader = ({ title, showNotifications = false }) => {
         'expenses': 'Expense Management',
         'reports': 'Reports & Analytics',
         'users': 'User Management',
-        'settings': 'Settings'
+        'settings': 'Settings',
+        'incoming-orders': 'Incoming Orders'
       }
       
       pathSegments.forEach((segment, index) => {
@@ -104,16 +140,19 @@ const NavigationHeader = ({ title, showNotifications = false }) => {
 
           {/* Right Section - Notifications & User */}
           <div className="flex items-center space-x-3">
-            {/* Notifications */}
-            {showNotifications && (
+            {/* Pending Orders Notification */}
+            {user && ['admin', 'waitress'].includes(user.role) && (
               <button
+                onClick={() => navigate('/incoming-orders')}
                 className="relative p-2 rounded-lg hover:bg-orange-600 transition-colors touch-manipulation"
-                aria-label="Notifications"
+                aria-label="Incoming Orders"
               >
                 <Bell className="h-6 w-6 text-white" />
-                <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                  3
-                </span>
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center animate-pulse">
+                    {pendingCount > 9 ? '9+' : pendingCount}
+                  </span>
+                )}
               </button>
             )}
 
