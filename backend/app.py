@@ -22,6 +22,17 @@ from routes.customer import customer_bp
 # Load environment variables
 load_dotenv()
 
+def _seed_default_admin():
+    """Create default admin user if no users exist in the database."""
+    from models import User
+    if User.query.count() == 0:
+        admin = User(username='admin', role='admin')
+        admin.set_password(os.environ.get('DEFAULT_ADMIN_PASSWORD', 'Admin@2024!Secure'))
+        db.session.add(admin)
+        db.session.commit()
+        print('Default admin user created (username: admin)')
+
+
 def create_app():
     app = Flask(__name__,
                 static_folder='static_frontend',
@@ -109,9 +120,10 @@ def create_app():
     # Customer endpoints — lighter rate limits
     limiter.limit("30 per minute")(customer_bp)
 
-    # Create tables
+    # Create tables and seed default admin if no users exist
     with app.app_context():
         db.create_all()
+        _seed_default_admin()
 
     # Health check endpoint
     @app.route('/api/health')
