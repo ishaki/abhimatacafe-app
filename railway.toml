@@ -1,8 +1,8 @@
 [build]
-builder = "nixpacks"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "cd frontend && npm install && npm run build && mkdir -p ../backend/static_frontend && cp -r dist/* ../backend/static_frontend/ && cd ../backend && pip install -r requirements.txt && gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app"
 healthcheckPath = "/api/health"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
