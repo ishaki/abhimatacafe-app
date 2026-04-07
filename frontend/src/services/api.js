@@ -29,8 +29,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      sessionStorage.removeItem('token')
-      window.location.href = '/login'
+      // Only redirect if not already on login page and not during initial auth check
+      const isLoginPage = window.location.pathname === '/login'
+      const isAuthCheck = error.config?.url?.includes('/auth/me')
+      if (!isLoginPage && !isAuthCheck) {
+        sessionStorage.removeItem('token')
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(error)
   }
