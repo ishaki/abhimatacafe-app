@@ -29,4 +29,4 @@ COPY --from=frontend-build /app/frontend/dist ./static_frontend
 EXPOSE ${PORT:-8080}
 
 # Run with gunicorn + eventlet
-CMD gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8080} app:app
+CMD ["/bin/bash", "-c", "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8080} app:app"]
