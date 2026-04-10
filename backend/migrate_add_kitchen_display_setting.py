@@ -11,11 +11,11 @@ import sys
 
 
 def get_db_path():
-    db_path = os.environ.get('DATABASE_PATH', 'instance/abhimata_cafe.db')
+    db_path = os.environ.get('DATABASE_PATH', 'abhimata_cafe.db')
     if not os.path.exists(db_path):
         candidates = [
-            'instance/abhimata_cafe.db',
             'abhimata_cafe.db',
+            'instance/abhimata_cafe.db',
             '../instance/abhimata_cafe.db',
         ]
         for candidate in candidates:

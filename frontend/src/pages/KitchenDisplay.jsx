@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
-import { ChefHat, Clock, CheckCircle, ShoppingBag, Utensils, Maximize, Minimize } from 'lucide-react'
+import { ChefHat, Clock, CheckCircle, ShoppingBag, Utensils, Maximize, Minimize, ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import websocket from '../services/websocket'
 import toast from 'react-hot-toast'
 import { useSettings } from '../contexts/SettingsContext'
-import NavigationHeader from '../components/NavigationHeader'
 
 const KitchenDisplay = () => {
+  const navigate = useNavigate()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -177,10 +178,17 @@ const KitchenDisplay = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {!isFullscreen && <NavigationHeader title="Kitchen Display" />}
       <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
+          {!isFullscreen && (
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="mr-4 p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
           <ChefHat className="h-8 w-8 text-abhimata-orange mr-3" />
           <h1 className="text-3xl font-bold text-gray-900">{settings.cafeName} - List of Orders</h1>
         </div>

@@ -22,6 +22,28 @@ from routes.customer import customer_bp
 # Load environment variables
 load_dotenv()
 
+def _auto_migrate(db):
+    """Run lightweight column migrations for existing databases."""
+    import sqlite3
+    db_path = os.environ.get('DATABASE_PATH', 'abhimata_cafe.db')
+    if not os.path.exists(db_path):
+        return
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    def column_exists(table, column):
+        cursor.execute(f"PRAGMA table_info({table})")
+        return column in [row[1] for row in cursor.fetchall()]
+
+    # Add kitchen_display_enabled to settings
+    if not column_exists('settings', 'kitchen_display_enabled'):
+        cursor.execute("ALTER TABLE settings ADD COLUMN kitchen_display_enabled BOOLEAN DEFAULT 1")
+        conn.commit()
+        print("Migration: added kitchen_display_enabled to settings")
+
+    conn.close()
+
+
 def _seed_default_admin():
     """Create default admin user if no users exist in the database."""
     from models import User
@@ -123,6 +145,7 @@ def create_app():
     # Create tables and seed default admin if no users exist
     with app.app_context():
         db.create_all()
+        _auto_migrate(db)
         _seed_default_admin()
 
     # Health check endpoint
