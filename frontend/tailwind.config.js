@@ -7,9 +7,9 @@ export default {
   theme: {
     extend: {
       colors: {
-        'abhimata-orange': '#FF6B35',
-        'abhimata-orange-light': '#FF8A65',
-        'abhimata-orange-dark': '#E64A19',
+        'abhimata-orange': '#A0826D',
+        'abhimata-orange-light': '#C4A98E',
+        'abhimata-orange-dark': '#7B5E4B',
       }
     },
   },

@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Users, Shield, UserCheck, UserX } from 'lucide-react'
+import { Plus, Edit, Trash2, Users, Shield, UserCheck, UserX, KeyRound } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import NavigationHeader from '../components/NavigationHeader'
 import Button from '../components/Button'
+import { useAuth } from '../contexts/AuthContext'
 
 const UserManagement = () => {
+  const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [resetPasswordUser, setResetPasswordUser] = useState(null)
+  const [newPassword, setNewPassword] = useState('')
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -35,9 +39,12 @@ const UserManagement = () => {
     e.preventDefault()
     try {
       if (editingUser) {
-        // For editing, we'll need to implement a separate endpoint
-        toast.error('User editing not implemented yet')
-        return
+        const updateData = { role: formData.role }
+        if (formData.password) {
+          updateData.new_password = formData.password
+        }
+        await api.put(`/auth/users/${editingUser.id}`, updateData)
+        toast.success('User updated successfully')
       } else {
         await api.post('/auth/users', formData)
         toast.success('User created successfully')
@@ -50,13 +57,28 @@ const UserManagement = () => {
   }
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
+    if (window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
       try {
-        // Note: Delete endpoint might not exist in backend
-        toast.error('User deletion not implemented yet')
+        await api.delete(`/auth/users/${id}`)
+        toast.success('User deleted successfully')
+        fetchUsers()
       } catch (error) {
-        toast.error('Failed to delete user')
+        toast.error(error.response?.data?.error || 'Failed to delete user')
       }
+    }
+  }
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault()
+    try {
+      await api.post(`/auth/users/${resetPasswordUser.id}/reset-password`, {
+        new_password: newPassword
+      })
+      toast.success(`Password reset for ${resetPasswordUser.username}`)
+      setResetPasswordUser(null)
+      setNewPassword('')
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to reset password')
     }
   }
 
@@ -303,6 +325,50 @@ const UserManagement = () => {
         </div>
       )}
 
+      {/* Reset Password Modal */}
+      {resetPasswordUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">
+              Reset Password for {resetPasswordUser.username}
+            </h2>
+
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">New Password</label>
+                <input
+                  type="password"
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Min 8 characters, must include uppercase, lowercase, and a number
+                </p>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-abhimata-orange text-white py-2 px-4 rounded-md hover:bg-abhimata-orange-dark"
+                >
+                  Reset Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setResetPasswordUser(null); setNewPassword('') }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Users Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="overflow-x-auto">
@@ -339,7 +405,12 @@ const UserManagement = () => {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.username}
+                          {currentUser && user.id === currentUser.id && (
+                            <span className="ml-1 text-xs text-abhimata-orange font-normal">(You)</span>
+                          )}
+                        </div>
                         <div className="text-sm text-gray-500">ID: {user.id}</div>
                       </div>
                     </div>
@@ -375,13 +446,24 @@ const UserManagement = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(user.id)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {(!currentUser || user.id !== currentUser.id) && (
+                        <>
+                          <button
+                            onClick={() => setResetPasswordUser(user)}
+                            className="text-yellow-600 hover:text-yellow-900 p-1 rounded hover:bg-yellow-50"
+                            title="Reset Password"
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user.id)}
+                            className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
