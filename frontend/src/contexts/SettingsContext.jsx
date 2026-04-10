@@ -22,7 +22,8 @@ export const SettingsProvider = ({ children }) => {
     serviceCharge: 5, // Default 5% service charge
     autoPrint: false,
     soundNotifications: true,
-    darkMode: false
+    darkMode: false,
+    kitchenDisplayEnabled: true
   })
   const [loading, setLoading] = useState(true)
 

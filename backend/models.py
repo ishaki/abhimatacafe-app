@@ -232,6 +232,8 @@ class Settings(db.Model):
     auto_print = db.Column(db.Boolean, default=False)
     sound_notifications = db.Column(db.Boolean, default=True)
     dark_mode = db.Column(db.Boolean, default=False)
+    # Workflow settings
+    kitchen_display_enabled = db.Column(db.Boolean, default=True)
     # Customer ordering settings
     show_price_breakdown = db.Column(db.Boolean, default=True)
     total_tables = db.Column(db.Integer, default=10)
@@ -261,6 +263,7 @@ class Settings(db.Model):
             'autoPrint': self.auto_print,
             'soundNotifications': self.sound_notifications,
             'darkMode': self.dark_mode,
+            'kitchenDisplayEnabled': self.kitchen_display_enabled,
             'showPriceBreakdown': self.show_price_breakdown,
             'totalTables': self.total_tables,
             'appUrl': self.app_url,
@@ -290,6 +293,7 @@ class Settings(db.Model):
         self.auto_print = data.get('autoPrint', self.auto_print)
         self.sound_notifications = data.get('soundNotifications', self.sound_notifications)
         self.dark_mode = data.get('darkMode', self.dark_mode)
+        self.kitchen_display_enabled = data.get('kitchenDisplayEnabled', self.kitchen_display_enabled)
         self.show_price_breakdown = data.get('showPriceBreakdown', self.show_price_breakdown)
         self.total_tables = data.get('totalTables', self.total_tables)
         self.app_url = data.get('appUrl', self.app_url)

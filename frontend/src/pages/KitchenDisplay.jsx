@@ -281,7 +281,12 @@ const KitchenDisplay = () => {
                 <div className="flex justify-end">
                   <button
                     onClick={() => markOrderComplete(order.id)}
-                    className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 flex items-center transition-colors"
+                    disabled={settings.kitchenDisplayEnabled === false}
+                    className={`px-4 py-2 rounded-lg flex items-center transition-colors ${
+                      settings.kitchenDisplayEnabled === false
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-green-500 text-white hover:bg-green-600'
+                    }`}
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Complete

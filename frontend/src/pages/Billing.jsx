@@ -14,9 +14,10 @@ const Billing = () => {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [searchTerm, setSearchTerm] = useState('')
-  
+
   // Get settings from context
   const { settings, calculateTax, calculateServiceCharge, calculateTotalWithTax } = useSettings()
+  const kitchenEnabled = settings.kitchenDisplayEnabled !== false
 
   useEffect(() => {
     fetchOrders()
@@ -31,6 +32,16 @@ const Billing = () => {
       toast.error('Failed to fetch orders')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const markOrderComplete = async (orderId) => {
+    try {
+      await api.patch(`/billing/orders/${orderId}/complete`)
+      toast.success('Order marked as complete')
+      fetchOrders()
+    } catch (error) {
+      toast.error('Failed to mark order as complete')
     }
   }
 
@@ -72,31 +83,33 @@ const Billing = () => {
   // Filter orders based on search term
   const filterOrders = (ordersList) => {
     if (!searchTerm.trim()) return ordersList
-    
+
     const term = searchTerm.toLowerCase()
     return ordersList.filter(order => {
       // Search by customer name
       if (order.customer_name && order.customer_name.toLowerCase().includes(term)) {
         return true
       }
-      
+
       // Search by table number
       if (order.table_number.toString().includes(term)) {
         return true
       }
-      
+
       // Search by order items
-      if (order.items.some(item => 
+      if (order.items.some(item =>
         item.menu_item_name.toLowerCase().includes(term)
       )) {
         return true
       }
-      
+
       return false
     })
   }
 
   const filteredOrders = filterOrders(orders)
+  const pendingOrders = filteredOrders.filter(o => o.status === 'pending')
+  const completedOrders = filteredOrders.filter(o => o.status === 'complete')
 
   if (loading) {
     return (
@@ -113,6 +126,103 @@ const Billing = () => {
     )
   }
 
+  const renderOrderCard = (order) => {
+    const isPending = order.status === 'pending'
+
+    return (
+      <div key={order.id} className={`bg-white rounded-lg shadow-md border ${isPending ? 'border-yellow-300' : 'border-gray-200'} p-6`}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">
+              Order #{order.id}
+            </h3>
+            <p className="text-sm text-gray-600">Table {order.table_number}</p>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center text-sm text-gray-600 mb-1">
+              <Clock className="h-4 w-4 mr-1" />
+              {formatTime(isPending ? order.created_at : order.completed_at)}
+            </div>
+            {isPending ? (
+              <span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                Pending
+              </span>
+            ) : (
+              <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                Ready
+              </span>
+            )}
+          </div>
+        </div>
+
+        {order.customer_name && (
+          <p className="text-sm text-gray-700 mb-3">
+            Customer: {order.customer_name}
+          </p>
+        )}
+
+        <div className="mb-4">
+          <h4 className="font-semibold text-gray-900 mb-2">Items:</h4>
+          <div className="space-y-1">
+            {order.items.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm">
+                <span>{item.menu_item_name} x{item.quantity}</span>
+                <span>Rp {item.subtotal.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border-t pt-4">
+          {/* Tax Breakdown */}
+          <div className="mb-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Subtotal:</span>
+              <span>{formatCurrency(calculateSubtotal(order))}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Service Charge ({settings.serviceCharge}%):</span>
+              <span>{formatCurrency(calculateServiceCharge(calculateSubtotal(order)))}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Tax ({settings.taxRate}%):</span>
+              <span>{formatCurrency(calculateTax(calculateSubtotal(order)))}</span>
+            </div>
+            <div className="border-t pt-2">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-semibold">Total:</span>
+                <span className="text-xl font-bold text-abhimata-orange">
+                  {formatCurrency(calculateTotal(order))}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {isPending ? (
+            <Button
+              onClick={() => markOrderComplete(order.id)}
+              icon={CheckCircle}
+              size="lg"
+              fullWidth
+              className="bg-yellow-500 hover:bg-yellow-600"
+            >
+              Mark as Complete
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setSelectedOrder(order)}
+              icon={CreditCard}
+              size="lg"
+              fullWidth
+            >
+              Process Payment
+            </Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <NavigationHeader title="Billing & Payment" />
@@ -121,11 +231,21 @@ const Billing = () => {
           <div className="flex justify-between items-center mb-6">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Billing & Payment</h1>
-              <p className="mt-2 text-gray-600">Process payments for completed orders</p>
+              <p className="mt-2 text-gray-600">
+                {kitchenEnabled
+                  ? 'Process payments for completed orders'
+                  : 'Mark orders complete and process payments'}
+              </p>
             </div>
             <div className="text-right">
+              {!kitchenEnabled && pendingOrders.length > 0 && (
+                <div className="mb-1">
+                  <p className="text-sm text-gray-600">Pending</p>
+                  <p className="text-2xl font-bold text-yellow-500">{pendingOrders.length}</p>
+                </div>
+              )}
               <p className="text-sm text-gray-600">Ready for Payment</p>
-              <p className="text-2xl font-bold text-abhimata-orange">{filteredOrders.length}</p>
+              <p className="text-2xl font-bold text-abhimata-orange">{completedOrders.length}</p>
             </div>
           </div>
 
@@ -152,89 +272,42 @@ const Billing = () => {
             {searchTerm ? 'No Orders Found' : 'No Orders Ready for Payment'}
           </h2>
           <p className="text-gray-500">
-            {searchTerm 
-              ? 'Try adjusting your search terms.' 
+            {searchTerm
+              ? 'Try adjusting your search terms.'
               : 'All orders are either pending or already paid.'
             }
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredOrders.map((order) => (
-            <div key={order.id} className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Order #{order.id}
-                  </h3>
-                  <p className="text-sm text-gray-600">Table {order.table_number}</p>
-                </div>
-                <div className="text-right">
-                  <div className="flex items-center text-sm text-gray-600 mb-1">
-                    <Clock className="h-4 w-4 mr-1" />
-                    {formatTime(order.completed_at)}
-                  </div>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                    Ready
-                  </span>
-                </div>
-              </div>
-
-              {order.customer_name && (
-                <p className="text-sm text-gray-700 mb-3">
-                  Customer: {order.customer_name}
-                </p>
-              )}
-
-              <div className="mb-4">
-                <h4 className="font-semibold text-gray-900 mb-2">Items:</h4>
-                <div className="space-y-1">
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span>{item.menu_item_name} x{item.quantity}</span>
-                      <span>Rp {item.subtotal.toLocaleString()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                {/* Tax Breakdown */}
-                <div className="mb-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(calculateSubtotal(order))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Service Charge ({settings.serviceCharge}%):</span>
-                    <span>{formatCurrency(calculateServiceCharge(calculateSubtotal(order)))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tax ({settings.taxRate}%):</span>
-                    <span>{formatCurrency(calculateTax(calculateSubtotal(order)))}</span>
-                  </div>
-                  <div className="border-t pt-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold">Total:</span>
-                      <span className="text-xl font-bold text-abhimata-orange">
-                        {formatCurrency(calculateTotal(order))}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                
-                <Button
-                  onClick={() => setSelectedOrder(order)}
-                  icon={CreditCard}
-                  size="lg"
-                  fullWidth
-                >
-                  Process Payment
-                </Button>
+        <>
+          {/* Pending Orders Section (only when kitchen is OFF) */}
+          {!kitchenEnabled && pendingOrders.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                <span className="w-3 h-3 bg-yellow-400 rounded-full mr-2"></span>
+                Pending Orders — Mark as Complete
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pendingOrders.map(renderOrderCard)}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Completed Orders Section */}
+          {completedOrders.length > 0 && (
+            <div>
+              {!kitchenEnabled && pendingOrders.length > 0 && (
+                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                  <span className="w-3 h-3 bg-green-400 rounded-full mr-2"></span>
+                  Ready for Payment
+                </h2>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {completedOrders.map(renderOrderCard)}
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Payment Modal */}
@@ -245,10 +318,10 @@ const Billing = () => {
               <Receipt className="h-5 w-5 mr-2 text-abhimata-orange" />
               Process Payment
             </h2>
-            
+
             <div className="mb-4">
               <p className="text-sm text-gray-600">Order #{selectedOrder.id} - Table {selectedOrder.table_number}</p>
-              
+
               {/* Detailed Bill Breakdown */}
               <div className="mt-4 bg-gray-50 rounded-lg p-4">
                 <h3 className="font-semibold text-gray-900 mb-3">Bill Breakdown</h3>
@@ -276,7 +349,7 @@ const Billing = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Payment Method
@@ -297,7 +370,7 @@ const Billing = () => {
                 ))}
               </div>
             </div>
-            
+
             <div className="flex space-x-3">
               <Button
                 onClick={() => processPayment(selectedOrder.id)}

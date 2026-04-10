@@ -95,6 +95,7 @@ def reset_settings():
         settings.auto_print = False
         settings.sound_notifications = True
         settings.dark_mode = False
+        settings.kitchen_display_enabled = True
         settings.show_price_breakdown = True
         settings.total_tables = 10
         settings.app_url = ''
