@@ -104,7 +104,9 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-gray-50">
+      <NavigationHeader title="Settings" />
+      <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
           <Settings className="h-8 w-8 text-abhimata-orange mr-3" />
@@ -505,6 +507,7 @@ const SettingsPage = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
