@@ -4,6 +4,7 @@ import { ShoppingCart, Plus, Minus, Trash2, Search, ArrowLeft } from 'lucide-rea
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
+import NavigationHeader from '../components/NavigationHeader'
 
 const OrderEdit = () => {
   const { orderId } = useParams()
@@ -199,7 +200,9 @@ const OrderEdit = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-gray-50">
+      <NavigationHeader title="Edit Order" />
+      <div className="p-6">
       <div className="flex items-center mb-6">
         <button
           onClick={() => navigate('/dashboard')}
@@ -484,6 +487,7 @@ const OrderEdit = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

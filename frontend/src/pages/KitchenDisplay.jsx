@@ -1,15 +1,33 @@
-import { useState, useEffect } from 'react'
-import { ChefHat, Clock, CheckCircle, ShoppingBag, Utensils } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ChefHat, Clock, CheckCircle, ShoppingBag, Utensils, Maximize, Minimize } from 'lucide-react'
 import api from '../services/api'
 import websocket from '../services/websocket'
 import toast from 'react-hot-toast'
 import { useSettings } from '../contexts/SettingsContext'
+import NavigationHeader from '../components/NavigationHeader'
 
 const KitchenDisplay = () => {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const { settings } = useSettings()
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen()
+    } else {
+      document.exitFullscreen()
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+    }
+    document.addEventListener('fullscreenchange', handleFullscreenChange)
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
+  }, [])
 
   useEffect(() => {
     fetchOrders()
@@ -158,15 +176,26 @@ const KitchenDisplay = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-gray-50">
+      {!isFullscreen && <NavigationHeader title="Kitchen Display" />}
+      <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           <ChefHat className="h-8 w-8 text-abhimata-orange mr-3" />
           <h1 className="text-3xl font-bold text-gray-900">{settings.cafeName} - List of Orders</h1>
         </div>
-        <div className="text-right">
-          <p className="text-sm text-gray-600">Pending Orders</p>
-          <p className="text-2xl font-bold text-abhimata-orange">{orders.length}</p>
+        <div className="flex items-center space-x-4">
+          <div className="text-right">
+            <p className="text-sm text-gray-600">Pending Orders</p>
+            <p className="text-2xl font-bold text-abhimata-orange">{orders.length}</p>
+          </div>
+          <button
+            onClick={toggleFullscreen}
+            className="p-2 rounded-lg bg-abhimata-orange text-white hover:bg-abhimata-orange-dark transition-colors"
+            title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+          </button>
         </div>
       </div>
 
@@ -263,6 +292,7 @@ const KitchenDisplay = () => {
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }
