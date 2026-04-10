@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { ShoppingCart, Plus, Minus, Trash2, Search, Utensils, ShoppingBag } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
+import NavigationHeader from '../components/NavigationHeader'
 
 const OrderCreation = () => {
   const [menuItems, setMenuItems] = useState([])
@@ -182,7 +183,9 @@ const OrderCreation = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="min-h-screen bg-gray-50">
+      <NavigationHeader title="Create Order" />
+      <div className="p-6">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Create New Order</h1>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -460,6 +463,7 @@ const OrderCreation = () => {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }
