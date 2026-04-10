@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
-import { ShoppingCart, Plus, Minus, Trash2, Search, Utensils, ShoppingBag } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Trash2, Search, Utensils, ShoppingBag, ArrowLeft } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import toast from 'react-hot-toast'
-import NavigationHeader from '../components/NavigationHeader'
 
 const OrderCreation = () => {
+  const navigate = useNavigate()
   const [menuItems, setMenuItems] = useState([])
   const [cart, setCart] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -184,9 +185,16 @@ const OrderCreation = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <NavigationHeader title="Create Order" />
       <div className="p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Create New Order</h1>
+      <div className="flex items-center mb-6">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="mr-4 p-2 hover:bg-gray-200 rounded-lg transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-3xl font-bold text-gray-900">Create New Order</h1>
+      </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Menu Items */}
