@@ -25,6 +25,9 @@ COPY backend/ ./
 # Copy built frontend into static_frontend
 COPY --from=frontend-build /app/frontend/dist ./static_frontend
 
+# Create persistent data directory for SQLite
+RUN mkdir -p /data
+
 # Expose port
 EXPOSE ${PORT:-8080}
 
