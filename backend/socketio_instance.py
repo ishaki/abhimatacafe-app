@@ -7,8 +7,12 @@ socketio = None
 
 def init_socketio(app):
     global socketio
-    allowed_origins = os.environ.get('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
-    allowed_origins = [origin.strip() for origin in allowed_origins]
+    allowed_origins_env = os.environ.get('ALLOWED_ORIGINS', '')
+    if allowed_origins_env:
+        allowed_origins = [origin.strip() for origin in allowed_origins_env.split(',')]
+    else:
+        # When not set, allow all origins (frontend is served from same origin)
+        allowed_origins = '*'
     # Use eventlet in production (Gunicorn), threading for local dev
     try:
         import eventlet  # noqa: F401
