@@ -147,7 +147,7 @@ def create_app():
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data:",
-            "connect-src 'self' wss: ws:",
+            "connect-src 'self' https: wss: ws:",
             "font-src 'self'",
             "frame-ancestors 'none'",
         ]
