@@ -225,3 +225,128 @@ def create_user():
              f"Created user: {username} with role: {role}")
 
     return jsonify(user.to_dict()), 201
+
+
+@auth_bp.route('/users/<int:user_id>', methods=['PUT'])
+@jwt_required()
+def update_user(user_id):
+    """Update a user's role and optionally reset their password (admin only)."""
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(int(current_user_id))
+
+    if not current_user or current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    target_user = User.query.get(user_id)
+    if not target_user:
+        return jsonify({'error': 'User not found'}), 404
+
+    data = request.get_json()
+    role_input = data.get('role')
+    new_password = data.get('new_password')
+
+    # Prevent admin from changing their own role
+    if target_user.id == current_user.id and role_input and role_input != current_user.role:
+        return jsonify({'error': 'Cannot change your own role'}), 400
+
+    changes = []
+
+    if role_input:
+        is_valid, role = validate_role(role_input)
+        if not is_valid:
+            return jsonify({'error': role}), 400
+        target_user.role = role
+        changes.append(f"role changed to {role}")
+
+    if new_password:
+        is_valid, msg = validate_password_strength(new_password)
+        if not is_valid:
+            return jsonify({'error': msg}), 400
+        target_user.set_password(new_password)
+        # Invalidate all active sessions for the target user
+        UserSession.query.filter_by(user_id=target_user.id, is_active=True).update({'is_active': False})
+        changes.append("password reset")
+
+    if not changes:
+        return jsonify({'error': 'No changes provided'}), 400
+
+    db.session.commit()
+
+    log_audit(current_user.id, 'update_user', 'user', target_user.id,
+              f"Updated user '{target_user.username}': {', '.join(changes)}")
+
+    return jsonify(target_user.to_dict()), 200
+
+
+@auth_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+def delete_user(user_id):
+    """Delete a user account (admin only)."""
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(int(current_user_id))
+
+    if not current_user or current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    target_user = User.query.get(user_id)
+    if not target_user:
+        return jsonify({'error': 'User not found'}), 404
+
+    # Prevent admin from deleting themselves
+    if target_user.id == current_user.id:
+        return jsonify({'error': 'Cannot delete your own account'}), 400
+
+    # Prevent deleting the last admin
+    if target_user.role == 'admin':
+        admin_count = User.query.filter_by(role='admin').count()
+        if admin_count <= 1:
+            return jsonify({'error': 'Cannot delete the last admin account'}), 400
+
+    username = target_user.username
+
+    # Invalidate all sessions then delete
+    UserSession.query.filter_by(user_id=target_user.id).delete()
+    db.session.delete(target_user)
+    db.session.commit()
+
+    log_audit(current_user.id, 'delete_user', 'user', user_id,
+              f"Deleted user '{username}'")
+
+    return jsonify({'message': f"User '{username}' deleted successfully"}), 200
+
+
+@auth_bp.route('/users/<int:user_id>/reset-password', methods=['POST'])
+@jwt_required()
+def reset_user_password(user_id):
+    """Reset another user's password (admin only)."""
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(int(current_user_id))
+
+    if not current_user or current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    target_user = User.query.get(user_id)
+    if not target_user:
+        return jsonify({'error': 'User not found'}), 404
+
+    data = request.get_json()
+    new_password = data.get('new_password', '')
+
+    if not new_password:
+        return jsonify({'error': 'New password is required'}), 400
+
+    is_valid, msg = validate_password_strength(new_password)
+    if not is_valid:
+        return jsonify({'error': msg}), 400
+
+    target_user.set_password(new_password)
+
+    # Invalidate all active sessions
+    UserSession.query.filter_by(user_id=target_user.id, is_active=True).update({'is_active': False})
+
+    db.session.commit()
+
+    log_audit(current_user.id, 'reset_password', 'user', target_user.id,
+              f"Admin reset password for user '{target_user.username}'")
+
+    return jsonify({'message': f"Password reset successfully for '{target_user.username}'"}), 200
