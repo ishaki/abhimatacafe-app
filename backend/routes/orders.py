@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from flask_socketio import emit
-from models import db, Order, OrderItem, MenuItem, User
+from models import db, Order, OrderItem, MenuItem, Settings, User
 from datetime import datetime
 from socketio_instance import get_socketio
 from utils.validators import (
@@ -172,6 +172,61 @@ def update_order_status(order_id):
                 'order_id': order.id,
                 'status': order.status
             }, room=room)
+
+    return jsonify(order.to_dict()), 200
+
+
+# --- Mark order as served (waitress flow when kitchen display is disabled) ---
+
+@orders_bp.route('/<int:order_id>/serve', methods=['PATCH'])
+@jwt_required()
+def mark_order_served(order_id):
+    """Mark a pending order as complete (served).
+
+    Used when kitchen display is disabled and the waitress brings food
+    out herself. Role gating:
+      - admin / kitchen: always allowed
+      - waitress: only when kitchen_display_enabled is False
+      - cashier: not allowed (use /billing/orders/<id>/complete instead)
+    """
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(int(current_user_id))
+
+    role = current_user.role
+    if role not in ('admin', 'kitchen', 'waitress'):
+        return jsonify({'error': 'Not allowed for your role'}), 403
+
+    if role == 'waitress':
+        settings = Settings.get_settings()
+        if settings.kitchen_display_enabled:
+            return jsonify({
+                'error': 'Kitchen display is enabled. Orders are completed from the kitchen.'
+            }), 400
+
+    order = Order.query.get_or_404(order_id)
+
+    if order.status != 'pending':
+        return jsonify({'error': f'Cannot serve order with status "{order.status}"'}), 400
+
+    order.status = 'complete'
+    order.completed_at = datetime.utcnow()
+    db.session.commit()
+
+    socketio = get_socketio()
+    socketio.emit('order_updated', order.to_dict())
+
+    # Notify customer if this is a customer order
+    if order.order_source == 'customer':
+        room = _get_customer_room(order)
+        if room:
+            socketio.emit('order_status_update', {
+                'order_id': order.id,
+                'status': 'complete',
+                'message': 'Your order is ready!'
+            }, room=room)
+
+    log_audit(current_user.id, 'mark_served', 'order', order.id,
+              f"{role} marked order #{order.id} as served")
 
     return jsonify(order.to_dict()), 200
 

@@ -6,14 +6,23 @@ import toast from 'react-hot-toast'
 import NavigationHeader from '../components/NavigationHeader'
 import Button from '../components/Button'
 import OrderDetailsModal from '../components/OrderDetailsModal'
+import { useAuth } from '../contexts/AuthContext'
+import { useSettings } from '../contexts/SettingsContext'
 
 const OrderList = () => {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { settings } = useSettings()
+  const kitchenEnabled = settings.kitchenDisplayEnabled !== false
+  const canMarkServed =
+    !kitchenEnabled && user && ['admin', 'waitress', 'kitchen'].includes(user.role)
+
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('pending')
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [servingId, setServingId] = useState(null)
 
   useEffect(() => {
     fetchOrders()
@@ -110,6 +119,19 @@ const OrderList = () => {
 
   const handleEditOrder = (orderId) => {
     navigate(`/orders/${orderId}/edit`)
+  }
+
+  const handleMarkServed = async (orderId) => {
+    setServingId(orderId)
+    try {
+      await api.patch(`/orders/${orderId}/serve`)
+      toast.success(`Order #${orderId} marked as served`)
+      await fetchOrders()
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to mark order as served')
+    } finally {
+      setServingId(null)
+    }
   }
 
   const handleCloseModal = () => {
@@ -253,25 +275,40 @@ const OrderList = () => {
                       </span>
                     </div>
                     
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => handleViewOrder(order)}
-                        icon={Eye}
-                        size="sm"
-                        variant="outline"
-                        fullWidth
-                      >
-                        View Details
-                      </Button>
-                      
-                      {order.status === 'pending' && (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex space-x-2">
                         <Button
-                          onClick={() => handleEditOrder(order.id)}
-                          icon={Edit}
+                          onClick={() => handleViewOrder(order)}
+                          icon={Eye}
                           size="sm"
+                          variant="outline"
                           fullWidth
                         >
-                          Edit Order
+                          View Details
+                        </Button>
+
+                        {order.status === 'pending' && (
+                          <Button
+                            onClick={() => handleEditOrder(order.id)}
+                            icon={Edit}
+                            size="sm"
+                            fullWidth
+                          >
+                            Edit Order
+                          </Button>
+                        )}
+                      </div>
+
+                      {order.status === 'pending' && canMarkServed && (
+                        <Button
+                          onClick={() => handleMarkServed(order.id)}
+                          icon={CheckCircle}
+                          size="sm"
+                          variant="success"
+                          fullWidth
+                          disabled={servingId === order.id}
+                        >
+                          {servingId === order.id ? 'Marking...' : 'Mark as Served'}
                         </Button>
                       )}
                     </div>

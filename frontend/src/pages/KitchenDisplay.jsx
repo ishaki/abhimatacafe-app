@@ -176,9 +176,27 @@ const KitchenDisplay = () => {
     )
   }
 
+  const kitchenDisabled = settings.kitchenDisplayEnabled === false
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-6">
+      {kitchenDisabled && (
+        <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg flex items-start justify-between gap-4">
+          <div>
+            <p className="font-semibold text-yellow-900">Kitchen Display is disabled</p>
+            <p className="text-sm text-yellow-800 mt-1">
+              Orders should be marked as served from the Order List page.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/orders')}
+            className="shrink-0 bg-abhimata-orange text-white px-4 py-2 rounded-lg hover:bg-abhimata-orange-dark transition-colors font-medium"
+          >
+            Go to Order List
+          </button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center">
           {!isFullscreen && (

@@ -1,10 +1,13 @@
 import { useAuth } from '../contexts/AuthContext'
+import { useSettings } from '../contexts/SettingsContext'
 import { useNavigate } from 'react-router-dom'
 import { LogOut, Coffee, Users, ShoppingCart, ChefHat, CreditCard, BarChart3, Settings, List, ClipboardList } from 'lucide-react'
 import NavigationHeader from '../components/NavigationHeader'
 
 const Dashboard = () => {
   const { user, logout } = useAuth()
+  const { settings } = useSettings()
+  const kitchenEnabled = settings.kitchenDisplayEnabled !== false
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -38,7 +41,7 @@ const Dashboard = () => {
       { name: 'Incoming Orders', icon: ClipboardList, path: '/incoming-orders', roles: ['admin', 'waitress'] },
       { name: 'Create Order', icon: ShoppingCart, path: '/orders/create', roles: ['admin', 'waitress'] },
       { name: 'Order List', icon: List, path: '/orders', roles: ['admin', 'waitress'] },
-      { name: 'Kitchen Display', icon: ChefHat, path: '/kitchen', roles: ['admin', 'kitchen'] },
+      { name: 'Kitchen Display', icon: ChefHat, path: '/kitchen', roles: ['admin', 'kitchen'], requiresKitchen: true },
       { name: 'Billing', icon: CreditCard, path: '/billing', roles: ['admin', 'cashier'] },
       { name: 'Expenses', icon: BarChart3, path: '/expenses', roles: ['admin', 'cashier'] },
       { name: 'Reports', icon: BarChart3, path: '/reports', roles: ['admin', 'cashier'] },
@@ -46,7 +49,11 @@ const Dashboard = () => {
       { name: 'Settings', icon: Settings, path: '/settings', roles: ['admin'] }
     ]
 
-    return baseItems.filter(item => item.roles.includes(user.role))
+    return baseItems.filter(item => {
+      if (!item.roles.includes(user.role)) return false
+      if (item.requiresKitchen && !kitchenEnabled) return false
+      return true
+    })
   }
 
   const menuItems = getMenuItems()
