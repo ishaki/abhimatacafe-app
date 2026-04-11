@@ -8,6 +8,7 @@ import MenuBrowser from '../components/order/MenuBrowser'
 import NotesModal from '../components/order/NotesModal'
 import OrderSummaryBar from '../components/order/OrderSummaryBar'
 import OrderDetailsDrawer from '../components/order/OrderDetailsDrawer'
+import ConfirmOrderModal from '../components/order/ConfirmOrderModal'
 
 const OrderCreation = () => {
   const navigate = useNavigate()
@@ -15,6 +16,7 @@ const OrderCreation = () => {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
   const [showTableNumberError, setShowTableNumberError] = useState(false)
   const [orderForm, setOrderForm] = useState({
     table_number: '',
@@ -60,7 +62,12 @@ const OrderCreation = () => {
     }
   }, [showTableNumberError, drawerOpen])
 
-  const submitOrder = async () => {
+  /**
+   * Validate the cart + form. If something is missing, surface it in
+   * the most useful place; if everything is valid, open the confirmation
+   * modal so the user can review before the order is sent.
+   */
+  const requestSubmit = () => {
     if (cart.length === 0) {
       toast.error('Please add items to cart')
       return
@@ -68,10 +75,16 @@ const OrderCreation = () => {
 
     if (!orderForm.table_number) {
       setShowTableNumberError(true)
-      toast.error('Please enter table number — tap View Details to add it')
+      // Open the drawer if not already open so the user can see the
+      // highlighted field. The focus effect handles the rest.
+      if (!drawerOpen) setDrawerOpen(true)
       return
     }
 
+    setConfirmOpen(true)
+  }
+
+  const confirmSubmit = async () => {
     setSubmitting(true)
     try {
       const orderData = {
@@ -93,6 +106,7 @@ const OrderCreation = () => {
       resetCart()
       setShowTableNumberError(false)
       setDrawerOpen(false)
+      setConfirmOpen(false)
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to create order')
     } finally {
@@ -138,7 +152,7 @@ const OrderCreation = () => {
         itemCount={itemCount}
         total={total}
         onViewDetails={() => setDrawerOpen(true)}
-        onSubmit={submitOrder}
+        onSubmit={requestSubmit}
         submitting={submitting}
         submitLabel="Submit Order"
       />
@@ -156,9 +170,19 @@ const OrderCreation = () => {
         onFormChange={handleFormChange}
         showTableNumberError={showTableNumberError}
         tableNumberInputRef={tableNumberInputRef}
-        onSubmit={submitOrder}
+        onSubmit={requestSubmit}
         submitting={submitting}
         submitLabel="Submit Order"
+      />
+
+      <ConfirmOrderModal
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={confirmSubmit}
+        orderForm={orderForm}
+        itemCount={itemCount}
+        total={total}
+        submitting={submitting}
       />
 
       {showNotesModal && selectedItem && (
