@@ -39,8 +39,8 @@ const Dashboard = () => {
     const baseItems = [
       { name: 'Menu Management', icon: Coffee, path: '/menu', roles: ['admin'] },
       { name: 'Incoming Orders', icon: ClipboardList, path: '/incoming-orders', roles: ['admin', 'waitress'] },
-      { name: 'Create Order', icon: ShoppingCart, path: '/orders/create', roles: ['admin', 'waitress'] },
-      { name: 'Order List', icon: List, path: '/orders', roles: ['admin', 'waitress'] },
+      { name: 'Create Order', icon: ShoppingCart, path: '/orders/create', roles: ['admin', 'waitress', 'cashier'] },
+      { name: 'Order List', icon: List, path: '/orders', roles: ['admin', 'waitress', 'cashier'] },
       { name: 'Kitchen Display', icon: ChefHat, path: '/kitchen', roles: ['admin', 'kitchen'], requiresKitchen: true },
       { name: 'Billing', icon: CreditCard, path: '/billing', roles: ['admin', 'cashier'] },
       { name: 'Expenses', icon: BarChart3, path: '/expenses', roles: ['admin', 'cashier'] },

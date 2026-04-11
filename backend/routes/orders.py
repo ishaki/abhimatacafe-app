@@ -33,7 +33,9 @@ def get_orders():
     if current_user.role == 'kitchen':
         query = query.filter_by(status='pending')
     elif current_user.role == 'cashier':
-        query = query.filter_by(status='complete')
+        # Cashier sees pending (orders they may have just created or
+        # need to mark complete) and complete (ready for payment)
+        query = query.filter(Order.status.in_(['pending', 'complete']))
     # Waitress and admin can see all orders (no additional filtering)
 
     orders = query.order_by(Order.created_at.desc()).all()
@@ -46,8 +48,8 @@ def create_order():
     current_user_id = get_jwt_identity()
     current_user = User.query.get(int(current_user_id))
 
-    if current_user.role not in ['admin', 'waitress']:
-        return jsonify({'error': 'Waitress access required'}), 403
+    if current_user.role not in ['admin', 'waitress', 'cashier']:
+        return jsonify({'error': 'Order creation requires waitress, cashier, or admin access'}), 403
 
     data = request.get_json()
 
@@ -193,10 +195,12 @@ def mark_order_served(order_id):
     current_user = User.query.get(int(current_user_id))
 
     role = current_user.role
-    if role not in ('admin', 'kitchen', 'waitress'):
+    if role not in ('admin', 'kitchen', 'waitress', 'cashier'):
         return jsonify({'error': 'Not allowed for your role'}), 403
 
-    if role == 'waitress':
+    # Waitress and cashier can only mark orders served when the kitchen
+    # display is disabled (otherwise the kitchen owns this transition).
+    if role in ('waitress', 'cashier'):
         settings = Settings.get_settings()
         if settings.kitchen_display_enabled:
             return jsonify({
@@ -432,8 +436,8 @@ def add_items_to_order(order_id):
     current_user_id = get_jwt_identity()
     current_user = User.query.get(int(current_user_id))
 
-    if current_user.role not in ['admin', 'waitress']:
-        return jsonify({'error': 'Waitress access required'}), 403
+    if current_user.role not in ['admin', 'waitress', 'cashier']:
+        return jsonify({'error': 'Order edit requires waitress, cashier, or admin access'}), 403
 
     order = Order.query.get_or_404(order_id)
 
@@ -499,8 +503,8 @@ def delete_order_item(order_id, item_id):
     current_user_id = get_jwt_identity()
     current_user = User.query.get(int(current_user_id))
 
-    if current_user.role not in ['admin', 'waitress']:
-        return jsonify({'error': 'Waitress access required'}), 403
+    if current_user.role not in ['admin', 'waitress', 'cashier']:
+        return jsonify({'error': 'Order edit requires waitress, cashier, or admin access'}), 403
 
     order = Order.query.get_or_404(order_id)
     order_item = OrderItem.query.filter_by(id=item_id, order_id=order_id).first()

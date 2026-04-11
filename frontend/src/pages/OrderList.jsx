@@ -15,7 +15,7 @@ const OrderList = () => {
   const { settings } = useSettings()
   const kitchenEnabled = settings.kitchenDisplayEnabled !== false
   const canMarkServed =
-    !kitchenEnabled && user && ['admin', 'waitress', 'kitchen'].includes(user.role)
+    !kitchenEnabled && user && ['admin', 'waitress', 'kitchen', 'cashier'].includes(user.role)
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
