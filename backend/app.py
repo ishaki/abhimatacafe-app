@@ -55,6 +55,35 @@ def _seed_default_admin():
         print('Default admin user created (username: admin)')
 
 
+def _seed_menu_items():
+    """Seed menu items from seed_menu_data.MENU_SEED if the table is empty.
+
+    Only runs on first-time setup (when no menu items exist) so it won't
+    overwrite items added/edited through the admin UI. To force a re-seed
+    after editing the Excel/regenerating seed_menu_data.py, clear the
+    menu_items table first.
+    """
+    from models import MenuItem
+    if MenuItem.query.count() > 0:
+        return
+    try:
+        from seed_menu_data import MENU_SEED
+    except ImportError:
+        print('Menu seed: seed_menu_data.py not found, skipping')
+        return
+    for item in MENU_SEED:
+        db.session.add(MenuItem(
+            name=item['name'],
+            category=item['category'],
+            description=item['description'],
+            price=item['price'],
+            rating=5,
+            status='available',
+        ))
+    db.session.commit()
+    print(f'Menu seed: inserted {len(MENU_SEED)} items')
+
+
 def create_app():
     app = Flask(__name__,
                 static_folder='static_frontend',
@@ -147,6 +176,7 @@ def create_app():
         db.create_all()
         _auto_migrate(db)
         _seed_default_admin()
+        _seed_menu_items()
 
     # Health check endpoint
     @app.route('/api/health')
