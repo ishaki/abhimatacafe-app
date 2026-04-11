@@ -43,17 +43,39 @@ export const CustomerSessionProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
   const [cafeSettings, setCafeSettings] = useState(null)
 
-  // Fetch public settings
+  // Fetch public settings. Refetched whenever the tab becomes visible again
+  // so admin changes to tax rate / service charge propagate to open customer
+  // tabs without requiring a manual reload. A cache-buster query param also
+  // defeats any intermediate HTTP cache a mobile browser may have kept.
   useEffect(() => {
+    let cancelled = false
+
     const fetchSettings = async () => {
       try {
-        const resp = await customerApi.get('/customer/settings')
-        setCafeSettings(resp.data)
+        const resp = await customerApi.get('/customer/settings', {
+          params: { _t: Date.now() },
+        })
+        if (!cancelled) setCafeSettings(resp.data)
       } catch (err) {
         console.error('Failed to fetch cafe settings:', err)
       }
     }
+
     fetchSettings()
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchSettings()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', fetchSettings)
+
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', fetchSettings)
+    }
   }, [])
 
   // Validate existing session on mount

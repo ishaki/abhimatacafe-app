@@ -128,9 +128,19 @@ def get_public_menu():
 
 @customer_bp.route('/settings', methods=['GET'])
 def get_public_settings():
-    """Public settings for customer UI (cafe name, currency, tax display)."""
+    """Public settings for customer UI (cafe name, currency, tax display).
+
+    Never cache this: admin changes to tax rate / service charge must be
+    reflected immediately on customer devices. Without these headers, mobile
+    browsers (especially Safari) cache the response and show stale values
+    long after the admin has updated Settings.
+    """
     settings = Settings.get_settings()
-    return jsonify(settings.to_public_dict()), 200
+    response = jsonify(settings.to_public_dict())
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response, 200
 
 
 # --- Customer order endpoints ---
