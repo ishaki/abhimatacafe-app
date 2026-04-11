@@ -164,7 +164,9 @@ def create_app():
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
         response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
 
-        # CSP — allow self, inline styles (Tailwind), WebSocket, and data URIs for images
+        # CSP — allow self, inline styles (Tailwind), WebSocket, and data URIs for images.
+        # upgrade-insecure-requests auto-upgrades any http:// subresource to https://
+        # before CSP checks — this protects against a baked-in http:// VITE_API_URL.
         csp_directives = [
             "default-src 'self'",
             "script-src 'self'",
@@ -173,6 +175,7 @@ def create_app():
             "connect-src 'self' https: wss: ws:",
             "font-src 'self'",
             "frame-ancestors 'none'",
+            "upgrade-insecure-requests",
         ]
         response.headers['Content-Security-Policy'] = '; '.join(csp_directives)
 

@@ -1,7 +1,20 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
+// If VITE_API_URL is baked in as http:// but the page is served over https://,
+// upgrade the scheme — otherwise the browser blocks it as mixed content / CSP.
+const resolveApiBase = () => {
+  const raw = import.meta.env.VITE_API_URL || '/api'
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    raw.startsWith('http://')
+  ) {
+    return raw.replace(/^http:\/\//, 'https://')
+  }
+  return raw
+}
+const API_BASE = resolveApiBase()
 
 const CustomerSessionContext = createContext()
 

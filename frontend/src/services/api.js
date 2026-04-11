@@ -1,6 +1,21 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api'
+// Resolve API base URL. If VITE_API_URL was accidentally baked in as http://
+// while the page is served over https://, upgrade it — otherwise the browser
+// blocks the request as mixed content / CSP violation.
+const resolveApiBaseUrl = () => {
+  const raw = import.meta.env.VITE_API_URL || '/api'
+  if (
+    typeof window !== 'undefined' &&
+    window.location.protocol === 'https:' &&
+    raw.startsWith('http://')
+  ) {
+    return raw.replace(/^http:\/\//, 'https://')
+  }
+  return raw
+}
+
+const API_BASE_URL = resolveApiBaseUrl()
 
 // Create axios instance
 const api = axios.create({

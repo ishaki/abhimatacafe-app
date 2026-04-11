@@ -6,14 +6,13 @@ import NavigationHeader from '../components/NavigationHeader'
 import Button from '../components/Button'
 import { useSettings } from '../contexts/SettingsContext'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api'
-
 const SettingsPage = () => {
   const { settings, updateSettings, loading: settingsLoading } = useSettings()
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showQrPreview, setShowQrPreview] = useState(false)
   const [downloadingQr, setDownloadingQr] = useState(false)
+  const [qrImages, setQrImages] = useState({}) // { [key]: blobUrl }
   const [systemInfo, setSystemInfo] = useState({
     version: '1.0.0',
     lastBackup: null,
@@ -25,6 +24,46 @@ const SettingsPage = () => {
   useEffect(() => {
     loadSystemInfo()
   }, [])
+
+  // Load QR previews via the authenticated api client. Using plain <img src>
+  // on the JWT-protected /settings/qr endpoints fails because the browser
+  // does not send the Authorization header for image requests.
+  useEffect(() => {
+    if (!showQrPreview) return
+
+    let cancelled = false
+    const createdUrls = []
+
+    const load = async () => {
+      const totalTables = settings.totalTables || 10
+      const keys = [
+        ...Array.from({ length: totalTables }, (_, i) => `table-${i + 1}`),
+        'takeaway',
+      ]
+      const next = {}
+      for (const key of keys) {
+        const path = key === 'takeaway'
+          ? '/settings/qr/takeaway'
+          : `/settings/qr/${key.split('-')[1]}`
+        try {
+          const resp = await api.get(path, { responseType: 'blob' })
+          const url = window.URL.createObjectURL(resp.data)
+          createdUrls.push(url)
+          next[key] = url
+        } catch (err) {
+          console.error(`Failed to load QR for ${key}`, err)
+        }
+      }
+      if (!cancelled) setQrImages(next)
+    }
+    load()
+
+    return () => {
+      cancelled = true
+      createdUrls.forEach((u) => window.URL.revokeObjectURL(u))
+      setQrImages({})
+    }
+  }, [showQrPreview, settings.totalTables])
 
   const loadSystemInfo = async () => {
     try {
@@ -325,38 +364,52 @@ const SettingsPage = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-4">
                   {Array.from({ length: settings.totalTables || 10 }, (_, i) => i + 1).map(num => (
                     <div key={`table-${num}`} className="bg-gray-50 rounded-lg p-3 text-center">
-                      <img
-                        src={`${API_BASE}/settings/qr/${num}`}
-                        alt={`Table ${num} QR`}
-                        className="w-full aspect-square object-contain mb-2"
-                        onError={(e) => { e.target.style.display = 'none' }}
-                      />
+                      {qrImages[`table-${num}`] ? (
+                        <img
+                          src={qrImages[`table-${num}`]}
+                          alt={`Table ${num} QR`}
+                          className="w-full aspect-square object-contain mb-2"
+                        />
+                      ) : (
+                        <div className="w-full aspect-square flex items-center justify-center text-xs text-gray-400 mb-2">
+                          Loading...
+                        </div>
+                      )}
                       <p className="text-xs font-medium text-gray-700">Table {num}</p>
-                      <a
-                        href={`${API_BASE}/settings/qr/${num}`}
-                        download={`table-${num}-qr.png`}
-                        className="text-xs text-abhimata-orange hover:underline"
-                      >
-                        Download
-                      </a>
+                      {qrImages[`table-${num}`] && (
+                        <a
+                          href={qrImages[`table-${num}`]}
+                          download={`table-${num}-qr.png`}
+                          className="text-xs text-abhimata-orange hover:underline"
+                        >
+                          Download
+                        </a>
+                      )}
                     </div>
                   ))}
                   {/* Takeaway QR */}
                   <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <img
-                      src={`${API_BASE}/settings/qr/takeaway`}
-                      alt="Takeaway QR"
-                      className="w-full aspect-square object-contain mb-2"
-                      onError={(e) => { e.target.style.display = 'none' }}
-                    />
+                    {qrImages.takeaway ? (
+                      <img
+                        src={qrImages.takeaway}
+                        alt="Takeaway QR"
+                        className="w-full aspect-square object-contain mb-2"
+                      />
+                    ) : (
+                      <div className="w-full aspect-square flex items-center justify-center text-xs text-gray-400 mb-2">
+                        Loading...
+                      </div>
+                    )}
                     <p className="text-xs font-medium text-blue-700">Takeaway</p>
-                    <a
-                      href={`${API_BASE}/settings/qr/takeaway`}
-                      download="takeaway-qr.png"
-                      className="text-xs text-abhimata-orange hover:underline"
-                    >
-                      Download
-                    </a>
+                    {qrImages.takeaway && (
+                      <a
+                        href={qrImages.takeaway}
+                        download="takeaway-qr.png"
+                        className="text-xs text-abhimata-orange hover:underline"
+                      >
+                        Download
+                      </a>
+                    )}
                   </div>
                 </div>
               )}
