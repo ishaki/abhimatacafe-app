@@ -4,6 +4,7 @@ import { ArrowLeft, Receipt } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
+import { useSettings } from '../contexts/SettingsContext'
 import NavigationHeader from '../components/NavigationHeader'
 import useOrderCart from '../hooks/useOrderCart'
 import MenuBrowser from '../components/order/MenuBrowser'
@@ -15,6 +16,8 @@ const OrderEdit = () => {
   const { orderId } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { settings } = useSettings()
+  const kitchenEnabled = settings.kitchenDisplayEnabled !== false
   const [order, setOrder] = useState(null)
   const [menuItems, setMenuItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -96,9 +99,16 @@ const OrderEdit = () => {
     }
   }
 
-  const canDeleteItem = (item) =>
-    order?.status === 'pending' &&
-    (item.is_new_addition || user?.role === 'admin')
+  const canDeleteItem = (item) => {
+    if (!order) return false
+    // Allow edits on pending orders always, or on complete orders when
+    // kitchen display is disabled (orders skip 'pending' in that mode).
+    const editableStatus =
+      order.status === 'pending' ||
+      (order.status === 'complete' && !kitchenEnabled)
+    if (!editableStatus) return false
+    return item.is_new_addition || user?.role === 'admin'
+  }
 
   if (loading) {
     return (

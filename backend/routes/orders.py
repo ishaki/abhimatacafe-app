@@ -94,13 +94,21 @@ def create_order():
             return jsonify({'error': f'Menu item {item["menu_item_id"]} not found'}), 400
         total_amount += menu_item.price * item['quantity']
 
-    # Create order (staff orders go directly to pending)
+    # Staff orders go directly to pending (kitchen enabled) or directly
+    # to complete (kitchen disabled — there is no kitchen to prepare it,
+    # so it goes straight to the cashier for payment).
+    settings = Settings.get_settings()
+    initial_status = 'pending' if settings.kitchen_display_enabled else 'complete'
+    completed_at = None if settings.kitchen_display_enabled else datetime.utcnow()
+
     order = Order(
         table_number=table_number,
         customer_name=customer_name,
         customer_phone=customer_phone,
         order_type=order_type,
         order_source='staff',
+        status=initial_status,
+        completed_at=completed_at,
         total_amount=total_amount
     )
 
@@ -125,6 +133,10 @@ def create_order():
     # Emit WebSocket event for real-time updates
     socketio = get_socketio()
     socketio.emit('new_order', order.to_dict())
+    if initial_status == 'complete':
+        # Also fire the status-update event so listeners that care about
+        # the transition (e.g. Billing) can pick it up.
+        socketio.emit('order_updated', order.to_dict())
 
     return jsonify(order.to_dict()), 201
 
@@ -252,8 +264,14 @@ def approve_order(order_id):
     if order.status != 'waiting_approval':
         return jsonify({'error': f'Cannot approve order with status "{order.status}"'}), 400
 
-    # Approve order
-    order.status = 'pending'
+    # Approve order. When kitchen display is disabled, skip the 'pending'
+    # intermediate and go straight to 'complete' (ready for payment).
+    settings = Settings.get_settings()
+    if settings.kitchen_display_enabled:
+        order.status = 'pending'
+    else:
+        order.status = 'complete'
+        order.completed_at = datetime.utcnow()
 
     # Approve all waiting items
     for item in order.items:
@@ -441,9 +459,15 @@ def add_items_to_order(order_id):
 
     order = Order.query.get_or_404(order_id)
 
-    # Only allow adding items to pending orders
-    if order.status != 'pending':
-        return jsonify({'error': 'Can only add items to pending orders'}), 400
+    # Allow editing pending orders always. When kitchen display is disabled
+    # orders skip 'pending' entirely and go straight to 'complete', so we
+    # also allow editing 'complete' orders in that mode (until they're paid).
+    settings = Settings.get_settings()
+    allowed_statuses = {'pending'}
+    if not settings.kitchen_display_enabled:
+        allowed_statuses.add('complete')
+    if order.status not in allowed_statuses:
+        return jsonify({'error': f'Cannot add items to order with status "{order.status}"'}), 400
 
     data = request.get_json()
     items = data.get('items', [])
@@ -516,9 +540,15 @@ def delete_order_item(order_id, item_id):
     if not order_item.is_new_addition and current_user.role != 'admin':
         return jsonify({'error': 'Only admin can delete completed items'}), 403
 
-    # Only allow deleting items from pending orders
-    if order.status != 'pending':
-        return jsonify({'error': 'Can only delete items from pending orders'}), 400
+    # Allow deleting items from pending orders always. When kitchen display
+    # is disabled orders are born in 'complete' so we also allow deletion
+    # there (until they're paid).
+    settings = Settings.get_settings()
+    allowed_statuses = {'pending'}
+    if not settings.kitchen_display_enabled:
+        allowed_statuses.add('complete')
+    if order.status not in allowed_statuses:
+        return jsonify({'error': f'Cannot delete items from order with status "{order.status}"'}), 400
 
     # Update order total
     order.total_amount -= order_item.subtotal

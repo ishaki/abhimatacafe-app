@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ShoppingCart, Clock, CheckCircle, CreditCard, Edit, Eye, ShoppingBag, Utensils, XCircle, AlertCircle, Users, Smartphone } from 'lucide-react'
+import { ShoppingCart, Clock, CheckCircle, CreditCard, Edit, Eye, ShoppingBag, Utensils, XCircle, AlertCircle, Users, Smartphone, Printer, X as XIcon } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import NavigationHeader from '../components/NavigationHeader'
@@ -8,6 +8,7 @@ import Button from '../components/Button'
 import OrderDetailsModal from '../components/OrderDetailsModal'
 import { useAuth } from '../contexts/AuthContext'
 import { useSettings } from '../contexts/SettingsContext'
+import { usePrinter } from '../contexts/PrinterContext'
 
 const OrderList = () => {
   const navigate = useNavigate()
@@ -16,6 +17,9 @@ const OrderList = () => {
   const kitchenEnabled = settings.kitchenDisplayEnabled !== false
   const canMarkServed =
     !kitchenEnabled && user && ['admin', 'waitress', 'kitchen', 'cashier'].includes(user.role)
+  const canPrint = user && ['admin', 'waitress', 'cashier'].includes(user.role)
+
+  const printer = usePrinter()
 
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
@@ -23,6 +27,7 @@ const OrderList = () => {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [servingId, setServingId] = useState(null)
+  const [printingId, setPrintingId] = useState(null)
 
   useEffect(() => {
     fetchOrders()
@@ -134,6 +139,32 @@ const OrderList = () => {
     }
   }
 
+  const handleConnectPrinter = async () => {
+    const ok = await printer.connect()
+    if (ok) toast.success('Printer connected')
+    else if (printer.error) toast.error(printer.error)
+  }
+
+  const handleDisconnectPrinter = async () => {
+    await printer.disconnect()
+    toast.success('Printer disconnected')
+  }
+
+  const handlePrintOrder = async (order) => {
+    if (!printer.connected) {
+      toast.error('Connect a printer first (button at the top of the page)')
+      return
+    }
+    setPrintingId(order.id)
+    const result = await printer.printOrder(order)
+    setPrintingId(null)
+    if (result.ok) {
+      toast.success(`Kitchen ticket sent for Order #${order.id}`)
+    } else {
+      toast.error(result.error || 'Failed to print kitchen ticket')
+    }
+  }
+
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedOrder(null)
@@ -169,6 +200,46 @@ const OrderList = () => {
               <p className="text-2xl font-bold text-abhimata-orange">{currentDateOrders.length}</p>
             </div>
           </div>
+
+          {/* Bluetooth printer status / connect */}
+          {canPrint && (
+            <div className="mb-4">
+              {!printer.supported ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2 text-sm text-yellow-900 flex items-center gap-2">
+                  <Printer className="h-4 w-4 shrink-0" />
+                  <span>
+                    Bluetooth printing is not supported on this browser. Use Chrome on Android.
+                  </span>
+                </div>
+              ) : printer.connected ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-900 flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Printer className="h-4 w-4 shrink-0 text-green-700" />
+                    <span className="truncate">
+                      Printer connected:{' '}
+                      <span className="font-semibold">{printer.deviceName}</span>
+                    </span>
+                  </span>
+                  <button
+                    onClick={handleDisconnectPrinter}
+                    className="shrink-0 text-green-800 hover:text-green-900 p-1 rounded hover:bg-green-100"
+                    title="Disconnect printer"
+                  >
+                    <XIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleConnectPrinter}
+                  disabled={printer.connecting}
+                  className="w-full sm:w-auto bg-white border-2 border-abhimata-orange text-abhimata-orange font-semibold rounded-lg px-4 py-2 hover:bg-orange-50 transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Printer className="h-4 w-4" />
+                  {printer.connecting ? 'Connecting...' : 'Connect Bluetooth Printer'}
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Status Filter */}
           <div className="mb-6">
@@ -287,7 +358,8 @@ const OrderList = () => {
                           View Details
                         </Button>
 
-                        {order.status === 'pending' && (
+                        {(order.status === 'pending' ||
+                          (order.status === 'complete' && !kitchenEnabled)) && (
                           <Button
                             onClick={() => handleEditOrder(order.id)}
                             icon={Edit}
@@ -309,6 +381,20 @@ const OrderList = () => {
                           disabled={servingId === order.id}
                         >
                           {servingId === order.id ? 'Marking...' : 'Mark as Served'}
+                        </Button>
+                      )}
+
+                      {canPrint && printer.supported && order.status !== 'rejected' && order.status !== 'waiting_approval' && (
+                        <Button
+                          onClick={() => handlePrintOrder(order)}
+                          icon={Printer}
+                          size="sm"
+                          variant="info"
+                          fullWidth
+                          disabled={!printer.connected || printingId === order.id}
+                          title={printer.connected ? 'Print kitchen ticket' : 'Connect a printer first'}
+                        >
+                          {printingId === order.id ? 'Printing...' : 'Print Kitchen Ticket'}
                         </Button>
                       )}
                     </div>
