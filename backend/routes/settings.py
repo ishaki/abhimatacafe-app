@@ -2,8 +2,12 @@ import io
 import zipfile
 from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from models import db, Settings, User
+from models import (
+    db, Settings, User,
+    Order, OrderItem, Expense, DailyCounter, CustomerSession,
+)
 from datetime import datetime
+from utils.audit import log_audit
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -112,6 +116,72 @@ def reset_settings():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': 'Failed to reset settings'}), 500
+
+
+@settings_bp.route('/reset-transactions', methods=['POST'])
+@jwt_required()
+def reset_transactions():
+    """Clear transactional data while keeping users, menu, settings.
+
+    Wipes: orders, order_items (cascade), expenses, daily_counters,
+    customer_sessions.
+    Keeps: users, user_sessions, menu_items, settings, audit_logs.
+
+    Admin only. Requires `confirm: "RESET"` in the request body so a
+    misclick or repeated request can't accidentally wipe data.
+    """
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+
+    if not current_user or current_user.role != 'admin':
+        return jsonify({'error': 'Admin access required'}), 403
+
+    data = request.get_json(silent=True) or {}
+    if data.get('confirm') != 'RESET':
+        return jsonify({
+            'error': 'Confirmation required. Send {"confirm": "RESET"} in the request body.'
+        }), 400
+
+    try:
+        # Count what we're about to delete so we can return a useful summary
+        counts = {
+            'orders': Order.query.count(),
+            'order_items': OrderItem.query.count(),
+            'expenses': Expense.query.count(),
+            'daily_counters': DailyCounter.query.count(),
+            'customer_sessions': CustomerSession.query.count(),
+        }
+
+        # Delete in dependency-safe order. order_items cascades from orders,
+        # but we delete it explicitly first for clarity and to make the
+        # row-count summary accurate. customer_sessions has an FK to orders,
+        # so it must go before orders.
+        CustomerSession.query.delete(synchronize_session=False)
+        OrderItem.query.delete(synchronize_session=False)
+        Order.query.delete(synchronize_session=False)
+        Expense.query.delete(synchronize_session=False)
+        DailyCounter.query.delete(synchronize_session=False)
+
+        db.session.commit()
+
+        # Audit log AFTER the wipe so the entry survives. audit_logs is
+        # intentionally kept (it's a security record, not transactional).
+        log_audit(
+            current_user.id,
+            'reset_transactions',
+            'database',
+            None,
+            f"Cleared transactional data: {counts}"
+        )
+
+        return jsonify({
+            'message': 'Transactional data cleared',
+            'deleted': counts,
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to reset transactions'}), 500
 
 
 # --- QR Code Generation ---

@@ -118,6 +118,27 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+    # Startup diagnostic so we can confirm the DB lives on the persistent
+    # volume (Railway logs). Without this, a misconfigured DATABASE_PATH
+    # silently sends the SQLite file to ephemeral storage and the database
+    # appears to "reset" on every redeploy.
+    abs_db_path = os.path.abspath(db_path)
+    db_exists = os.path.exists(db_path)
+    db_size = os.path.getsize(db_path) if db_exists else 0
+    on_persistent_volume = abs_db_path.startswith('/data') or abs_db_path.startswith('\\data')
+    print(
+        f"[DB] path={abs_db_path} "
+        f"exists={db_exists} size={db_size}B "
+        f"persistent_volume={on_persistent_volume} "
+        f"DATABASE_PATH_env={'set' if 'DATABASE_PATH' in os.environ else 'unset'}"
+    )
+    if is_production and not on_persistent_volume:
+        print(
+            "[DB] WARNING: production DB is NOT on a persistent volume. "
+            "Set DATABASE_PATH=/data/abhimata_cafe.db on Railway and "
+            "attach a volume at /data, otherwise data will be lost on redeploy."
+        )
+
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(days=1)
 
     # Configure logging for production
