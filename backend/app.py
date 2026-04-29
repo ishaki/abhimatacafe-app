@@ -239,6 +239,13 @@ def create_app():
         app.logger.error(f"Error: {str(error)}", exc_info=True)
         return jsonify({'error': 'An error occurred processing your request'}), 500
 
+    def _send_index_no_cache():
+        resp = send_from_directory(app.static_folder, 'index.html')
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
+
     @app.errorhandler(404)
     def not_found(error):
         # If API route, return JSON 404
@@ -246,7 +253,7 @@ def create_app():
             return jsonify({'error': 'Resource not found'}), 404
         # Otherwise serve frontend (SPA routing)
         if app.static_folder and os.path.exists(os.path.join(app.static_folder, 'index.html')):
-            return send_from_directory(app.static_folder, 'index.html')
+            return _send_index_no_cache()
         return jsonify({'error': 'Resource not found'}), 404
 
     @app.errorhandler(403)
@@ -266,7 +273,7 @@ def create_app():
         # SPA fallback — serve index.html for all other routes
         index_path = os.path.join(app.static_folder, 'index.html')
         if os.path.exists(index_path):
-            return send_from_directory(app.static_folder, 'index.html')
+            return _send_index_no_cache()
         return jsonify({'error': 'Frontend not built. Run: cd frontend && npm run build'}), 404
 
     return app, socketio
