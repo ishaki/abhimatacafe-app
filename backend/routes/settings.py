@@ -94,8 +94,8 @@ def reset_settings():
         settings.cafe_phone = ''
         settings.cafe_email = ''
         settings.currency = 'IDR'
-        settings.tax_rate = 11.0
-        settings.service_charge = 5.0
+        settings.tax_rate = 10.0
+        settings.service_charge = 0.0
         settings.auto_print = False
         settings.sound_notifications = True
         settings.dark_mode = False

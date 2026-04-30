@@ -18,8 +18,8 @@ export const SettingsProvider = ({ children }) => {
     cafePhone: '',
     cafeEmail: '',
     currency: 'IDR',
-    taxRate: 11, // Default 11% tax rate
-    serviceCharge: 5, // Default 5% service charge
+    taxRate: 10, // Default 10% tax rate
+    serviceCharge: 0, // Default 0% service charge
     autoPrint: false,
     soundNotifications: true,
     darkMode: false,
