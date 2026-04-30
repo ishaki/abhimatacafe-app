@@ -102,13 +102,25 @@ const OrderList = () => {
     return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
-  // Filter orders to show only current date orders
+  // Filter orders to show only current date orders.
+  // The backend emits naive UTC timestamps (no 'Z' suffix), which JS
+  // would otherwise parse as local time and shift the date. Force-UTC
+  // by appending 'Z' when the string has no timezone marker, then
+  // compare local Y-M-D parts so "today" matches the user's wall clock.
+  const parseServerTime = (s) => {
+    if (!s) return new Date(NaN)
+    return /[zZ]|[+-]\d{2}:?\d{2}$/.test(s) ? new Date(s) : new Date(s + 'Z')
+  }
+  const localDateString = (d) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
   const getCurrentDateOrders = (orders) => {
-    const today = new Date()
-    const todayString = today.toISOString().split('T')[0] // YYYY-MM-DD format
-    
+    const todayString = localDateString(new Date())
     return orders.filter(order => {
-      const orderDate = new Date(order.created_at).toISOString().split('T')[0]
+      const orderDate = localDateString(parseServerTime(order.created_at))
       return orderDate === todayString
     })
   }
