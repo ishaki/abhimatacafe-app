@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Edit, Trash2, Users, Shield, UserCheck, UserX, KeyRound } from 'lucide-react'
+import { Plus, Edit, Trash2, Users, Shield, UserCheck, UserX, KeyRound, UserPlus } from 'lucide-react'
 import api from '../services/api'
 import toast from 'react-hot-toast'
 import NavigationHeader from '../components/NavigationHeader'
@@ -54,6 +54,42 @@ const UserManagement = () => {
     } catch (error) {
       toast.error(error.response?.data?.error || 'Failed to save user')
     }
+  }
+
+  const handlePopulateDefaults = async () => {
+    if (!window.confirm('Create default users "cashier" and "waitress" with their default passwords?')) {
+      return
+    }
+    const defaults = [
+      { username: 'cashier', password: 'Cashier123', role: 'cashier' },
+      { username: 'waitress', password: 'Waitress123', role: 'waitress' },
+    ]
+    let created = 0
+    let skipped = 0
+    let failed = 0
+    for (const u of defaults) {
+      try {
+        await api.post('/auth/users', u)
+        created++
+      } catch (error) {
+        const msg = error.response?.data?.error || ''
+        if (msg.toLowerCase().includes('already exists')) {
+          skipped++
+        } else {
+          failed++
+        }
+      }
+    }
+    if (created > 0) {
+      toast.success(`Created ${created} default user(s)`)
+    }
+    if (skipped > 0) {
+      toast(`Skipped ${skipped} existing user(s)`, { icon: 'ℹ️' })
+    }
+    if (failed > 0) {
+      toast.error(`Failed to create ${failed} user(s)`)
+    }
+    fetchUsers()
   }
 
   const handleDelete = async (id) => {
@@ -185,13 +221,23 @@ const UserManagement = () => {
               <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
               <p className="mt-2 text-gray-600">Manage staff accounts and permissions</p>
             </div>
-            <Button
-              onClick={() => setShowForm(true)}
-              icon={Plus}
-              size="lg"
-            >
-              Add User
-            </Button>
+            <div className="flex space-x-3">
+              <Button
+                onClick={handlePopulateDefaults}
+                icon={UserPlus}
+                size="lg"
+                variant="secondary"
+              >
+                Populate Default Users
+              </Button>
+              <Button
+                onClick={() => setShowForm(true)}
+                icon={Plus}
+                size="lg"
+              >
+                Add User
+              </Button>
+            </div>
           </div>
 
       {/* Role Statistics */}
