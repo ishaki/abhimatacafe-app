@@ -35,8 +35,11 @@ const OrderList = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await api.get('/orders')
-      setOrders(response.data)
+      // Backend route is registered as '/' under /api/orders, so the URL
+      // must end with a slash. Without it the SPA catch-all returns
+      // index.html and OrderList tries to filter an HTML string.
+      const response = await api.get('/orders/')
+      setOrders(Array.isArray(response.data) ? response.data : [])
     } catch (error) {
       console.error('Failed to fetch orders:', error)
       toast.error('Failed to fetch orders')
